@@ -12,9 +12,12 @@
 .pytest_cache/
 .ruff_cache/
 .venv/
+Proyecto_Final_Computer_Vision.pdf
 __pycache__/
 logs/
 runs/
-seg_dataset/
-venv/
 seg_dataset.zip
+seg_dataset/
+train.ipynb
+utils.py
+venv/
