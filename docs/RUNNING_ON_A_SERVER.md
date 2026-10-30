@@ -6,6 +6,16 @@ datacentre GPU with AMP and a larger batch it is minutes per epoch.
 
 Everything below assumes the repo is checked out on the server.
 
+## 0. Clone
+
+```bash
+git clone https://github.com/PabloAndresE/sam2-supertuxkart-segmentation.git
+cd sam2-supertuxkart-segmentation
+```
+
+The repository is private, so the server needs an authenticated `gh` (or a
+personal access token in the clone URL). `gh auth login` once per machine.
+
 ## 1. Setup (on a login node)
 
 Compute nodes are frequently firewalled, so fetch wheels and model weights first:
@@ -14,24 +24,28 @@ Compute nodes are frequently firewalled, so fetch wheels and model weights first
 CUDA_TAG=cu124 bash scripts/setup_server.sh
 ```
 
+This also calls `scripts/fetch_assets.sh`, which pulls the dataset (302 MB) and the
+trained decoder (7.9 MB) from the GitHub releases. Neither is tracked in git.
+
 This creates `.venv`, installs CUDA torch, installs the project, **pre-downloads the
 SAM 2 and ConvNeXt weights into `.hf_cache/`**, and runs lint + tests. Set `CUDA_TAG`
 to match the driver (`cu121`, `cu124`, `cu118`).
 
 ## 2. Dataset
 
-The dataset is not in the repo. The fastest transfer is the single zip, not 3001 loose
-files — on iCloud the per-file overhead dominates (0.6 files/s versus 3.5 s for the
-whole archive):
+Handled by `scripts/fetch_assets.sh` (run automatically by the setup script):
 
 ```bash
-scp "Archive.zip" <user>@<host>:/path/to/sam2-supertuxkart-segmentation/
-ssh <user>@<host>
-cd /path/to/sam2-supertuxkart-segmentation
-unzip -q -o Archive.zip -x '__MACOSX/*' -d .
+bash scripts/fetch_assets.sh            # dataset + weights
+bash scripts/fetch_assets.sh --data     # dataset only
 ```
 
-Expect `seg_dataset/images` with 1501 files and `seg_dataset/masks` with 1500.
+It downloads one 302 MB zip rather than 3001 loose files — per-file overhead dominates
+any sync of this dataset (iCloud served the loose files at 0.6 files/s, 6.4 h total,
+versus 3.5 s to unzip the archive).
+
+Expect `seg_dataset/images` with 1501 files and `seg_dataset/masks` with 1500. The
+script skips the download when the dataset is already complete, so it is safe to re-run.
 
 ## 3. Preflight
 

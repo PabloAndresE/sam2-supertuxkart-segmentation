@@ -187,9 +187,10 @@ Design notes:
 ## Quickstart
 
 ```bash
-git clone https://github.com/<user>/sam2-supertuxkart-segmentation
+git clone https://github.com/PabloAndresE/sam2-supertuxkart-segmentation
 cd sam2-supertuxkart-segmentation
 pip install -e ".[app,dev]"
+bash scripts/fetch_assets.sh     # dataset (302 MB) + trained decoder (7.9 MB)
 ```
 
 ```bash
@@ -228,7 +229,15 @@ caught in seconds rather than after the job starts.
 
 ## Dataset and weights
 
-Neither is in the repo. The dataset is 1500 frame/mask pairs (400×400 RGB) exported from
+Neither is tracked in git; both are GitHub release assets, fetched by
+`bash scripts/fetch_assets.sh`:
+
+| Asset | Release | Size |
+|---|---|---|
+| `Archive.zip` → `seg_dataset/` | `data-v1` | 302 MB |
+| `decoder_best.pt` → `runs/baseline/` | `v0.1.0` | 7.9 MB |
+
+The dataset is 1500 frame/mask pairs (400×400 RGB) exported from
 [`pystk`](https://github.com/philkr/pystk), the Python binding to the SuperTuxKart
 engine, which gives exact pixel-level ground truth:
 
@@ -238,7 +247,8 @@ seg_dataset/
   masks/abyss_mask_combined_0128.png   # uint8, values 0–6
 ```
 
-The trained decoder ships as a GitHub release artifact. To regenerate it from a full
+The decoder checkpoint is 7.9 MB rather than 117 MB because the frozen encoder is not
+stored — it is pulled from Hugging Face at load time. To regenerate it from a full
 checkpoint that still contains the encoder:
 
 ```bash

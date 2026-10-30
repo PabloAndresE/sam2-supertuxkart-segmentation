@@ -37,12 +37,9 @@ convnext_tiny(weights="DEFAULT")
 print("ConvNeXt-Tiny cached")
 PY
 
-echo "==> dataset"
+echo "==> dataset and weights"
 if [ ! -d seg_dataset ]; then
-  echo "    seg_dataset/ not found."
-  echo "    Copy the archive over and unzip it here, e.g.:"
-  echo "      scp Archive.zip <user>@<host>:$REPO/"
-  echo "      unzip -q -o Archive.zip -x '__MACOSX/*' -d ."
+  bash scripts/fetch_assets.sh
 else
   echo "    seg_dataset/ present: $(find seg_dataset -name '*.png' | wc -l | tr -d ' ') png files"
 fi
