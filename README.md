@@ -203,7 +203,28 @@ python -m stkseg.predict  path/to/frame.png --out prediction.png
 ```
 
 Useful overrides: `--model {sam2,convnext_frozen,unet}`,
-`--strategy {random,temporal_block,track_holdout}`, `--seed N`.
+`--strategy {random,temporal_block,track_holdout}`, `--seed N`, `--amp`,
+`--batch-size N`, `--num-workers N`.
+
+## Running the suite on a GPU server
+
+A training epoch costs **245 s** on an Apple M1 Pro (512px, batch 4) — about 4 h per run
+and 24 h for the suite, so the experiments belong on a GPU. Full instructions in
+[`docs/RUNNING_ON_A_SERVER.md`](docs/RUNNING_ON_A_SERVER.md):
+
+```bash
+CUDA_TAG=cu124 bash scripts/setup_server.sh      # venv, CUDA torch, weights pre-cached
+export HF_HOME=$PWD/.hf_cache
+python scripts/preflight.py --config configs/server.yaml --amp
+
+bash scripts/run_suite.sh                        # single box, sequential
+sbatch scripts/slurm/suite.sbatch                # SLURM, one array task per experiment
+```
+
+`scripts/preflight.py` is the gate: it checks the dataset, builds the splits, confirms
+the weights load **offline** (compute nodes are often firewalled) and times real
+dataloader batches to project runtime and peak memory, so a `batch_size` that OOMs is
+caught in seconds rather than after the job starts.
 
 ## Dataset and weights
 

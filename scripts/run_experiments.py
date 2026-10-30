@@ -78,6 +78,9 @@ def main() -> None:
     parser.add_argument("--data-root", default=None)
     parser.add_argument("--epochs", type=int, default=None)
     parser.add_argument("--device", default=DEVICE)
+    parser.add_argument("--amp", action="store_true", help="fp16 mixed precision (CUDA only)")
+    parser.add_argument("--batch-size", type=int, default=None)
+    parser.add_argument("--num-workers", type=int, default=None)
     parser.add_argument("--only", nargs="*", default=None, help="run a subset by name")
     parser.add_argument("--aggregate-only", action="store_true")
     parser.add_argument("--dry-run", action="store_true", help="print the plan and exit")
@@ -99,6 +102,10 @@ def main() -> None:
             overrides.setdefault("train", {})["out_dir"] = str(root / name)
             if args.data_root:
                 overrides.setdefault("data", {})["root"] = args.data_root
+            if args.batch_size:
+                overrides.setdefault("data", {})["batch_size"] = args.batch_size
+            if args.num_workers is not None:
+                overrides.setdefault("data", {})["num_workers"] = args.num_workers
             if args.epochs:
                 overrides["train"]["epochs"] = args.epochs
 
@@ -110,7 +117,7 @@ def main() -> None:
 
             from stkseg.train import run
 
-            run(cfg, device=args.device, quiet=True)
+            run(cfg, device=args.device, quiet=True, amp=args.amp)
 
     rows = aggregate(root)
     (root / "summary.json").write_text(json.dumps(rows, indent=2))

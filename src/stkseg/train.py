@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import time
+from contextlib import nullcontext
 from pathlib import Path
 
 import torch
@@ -18,20 +19,36 @@ from stkseg.registry import build_model
 from stkseg.viz import plot_history
 
 
-def evaluate_split(model, loader, criterion, device) -> tuple[float, float]:
+def autocast_context(device: str, enabled: bool):
+    """Mixed precision on CUDA only.
+
+    MPS autocast is not reliable for this graph and CPU bf16 is slower than
+    fp32 here, so AMP stays opt-in and CUDA-only rather than silently changing
+    numerics on a laptop.
+    """
+    if enabled and device == "cuda":
+        return torch.autocast(device_type="cuda", dtype=torch.float16)
+    return nullcontext()
+
+
+def evaluate_split(model, loader, criterion, device, amp: bool = False) -> tuple[float, float]:
     model.eval()
     total_loss, total_iou, batches = 0.0, 0.0, 0
     with torch.no_grad():
         for images, masks in loader:
             images, masks = images.to(device), masks.to(device)
-            logits = model(images)
-            total_loss += criterion(logits, masks).item()
+            with autocast_context(device, amp):
+                logits = model(images)
+                loss = criterion(logits, masks)
+            total_loss += loss.item()
             total_iou += mean_iou(logits.argmax(dim=1).cpu(), masks.cpu())
             batches += 1
     return total_loss / max(batches, 1), total_iou / max(batches, 1)
 
 
-def run(cfg: Config, device: str = DEVICE, quiet: bool = False) -> dict:
+def run(
+    cfg: Config, device: str = DEVICE, quiet: bool = False, amp: bool = False
+) -> dict:
     """Train one configuration and return its history plus the best val score."""
     out_dir = Path(cfg.train.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -54,7 +71,7 @@ def run(cfg: Config, device: str = DEVICE, quiet: bool = False) -> dict:
 
     model = build_model(cfg.model).to(device)
     if not quiet:
-        print(f"model={cfg.model.name} params={model.param_counts}")
+        print(f"model={cfg.model.name} params={model.param_counts} amp={amp and device == 'cuda'}")
 
     criterion = CombinedLoss(
         class_weights=torch.tensor(cfg.loss.class_weights, dtype=torch.float32, device=device),
@@ -62,6 +79,7 @@ def run(cfg: Config, device: str = DEVICE, quiet: bool = False) -> dict:
         dice_weight=cfg.loss.dice_weight,
     ).to(device)
     optimizer = torch.optim.Adam(model.trainable_parameters(), lr=cfg.train.lr)
+    scaler = torch.amp.GradScaler("cuda", enabled=amp and device == "cuda")
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
         mode="min",
@@ -78,13 +96,15 @@ def run(cfg: Config, device: str = DEVICE, quiet: bool = False) -> dict:
         for images, masks in loaders["train"]:
             images, masks = images.to(device), masks.to(device)
             optimizer.zero_grad()
-            loss = criterion(model(images), masks)
-            loss.backward()
-            optimizer.step()
+            with autocast_context(device, amp):
+                loss = criterion(model(images), masks)
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
             running += loss.item()
         train_loss = running / len(loaders["train"])
 
-        val_loss, val_iou = evaluate_split(model, loaders["val"], criterion, device)
+        val_loss, val_iou = evaluate_split(model, loaders["val"], criterion, device, amp)
         lr = optimizer.param_groups[0]["lr"]
         scheduler.step(val_loss)
 
@@ -123,19 +143,32 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--epochs", type=int, default=None)
     parser.add_argument("--out-dir", default=None)
+    parser.add_argument("--batch-size", type=int, default=None)
+    parser.add_argument("--num-workers", type=int, default=None)
     parser.add_argument("--device", default=DEVICE)
+    parser.add_argument(
+        "--amp", action="store_true", help="fp16 mixed precision (CUDA only, ignored elsewhere)"
+    )
     args = parser.parse_args()
 
     cfg = Config.from_yaml(args.config)
-    data_over = {k: v for k, v in
-                 (("root", args.data_root), ("strategy", args.strategy), ("seed", args.seed))
-                 if v is not None}
+    data_over = {
+        k: v
+        for k, v in (
+            ("root", args.data_root),
+            ("strategy", args.strategy),
+            ("seed", args.seed),
+            ("batch_size", args.batch_size),
+            ("num_workers", args.num_workers),
+        )
+        if v is not None
+    }
     model_over = {"name": args.model} if args.model else {}
     train_over = {k: v for k, v in (("epochs", args.epochs), ("out_dir", args.out_dir))
                   if v is not None}
     cfg = cfg.with_overrides(data=data_over, model=model_over, train=train_over)
 
-    summary = run(cfg, device=args.device)
+    summary = run(cfg, device=args.device, amp=args.amp)
     print(
         f"best validation mIoU {summary['best_val_iou']:.4f} "
         f"at epoch {summary['best_epoch']} -> {cfg.train.out_dir}/decoder_best.pt"

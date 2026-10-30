@@ -1,0 +1,25 @@
+# The six runs that answer the two questions the legacy number could not.
+#
+#   1-3: how much did the split protocol inflate the 0.8534?
+#   4-6: is a frozen backbone worth it, and does it have to be SAM 2?
+#
+# Full protocol: 512px, 60 epochs, matching the original coursework run, so the
+# scores are directly comparable to the legacy 0.8534. On an M1 Pro an epoch
+# costs 245 s (24 h for the suite); on a datacentre GPU with AMP it is minutes.
+#
+# `backbone_sam2` is intentionally absent: it is identical to
+# `split_temporal_block`, which already provides that row of the table.
+
+- name: split_random
+  data: {strategy: random}
+- name: split_temporal_block
+  data: {strategy: temporal_block}
+- name: split_track_holdout
+  data: {strategy: track_holdout}
+
+- name: backbone_convnext_frozen
+  data: {strategy: temporal_block}
+  model: {name: convnext_frozen}
+- name: backbone_unet_scratch
+  data: {strategy: temporal_block}
+  model: {name: unet}

@@ -1,0 +1,35 @@
+# Base config for a CUDA node: same protocol as configs/default.yaml, with the
+# batch size and loader workers raised to what a datacentre GPU can feed.
+#
+# batch_size 16 needs roughly 20 GB at 512px with AMP enabled. Drop to 8 on a
+# 16 GB card; the optimizer is unchanged, so only throughput moves.
+data:
+  root: seg_dataset
+  img_size: [512, 512]
+  batch_size: 16
+  strategy: temporal_block
+  fractions: [0.7, 0.15, 0.15]
+  block_size: 25
+  seed: 42
+  oversample_factor: 5.0
+  num_workers: 8
+
+model:
+  name: sam2
+  encoder: facebook/sam2.1-hiera-tiny
+  fpn_channels: 256
+  decoder_width: 128
+  dropout: 0.1
+  fpn_levels: ["high", "mid", "low"]
+
+loss:
+  ce_weight: 0.3
+  dice_weight: 0.7
+  class_weights: [0.5, 0.8, 3.0, 5.0, 8.0, 10.0, 15.0]
+
+train:
+  epochs: 60
+  lr: 0.0005
+  scheduler_patience: 5
+  scheduler_factor: 0.5
+  out_dir: runs/baseline
