@@ -34,9 +34,9 @@ if [ "$WANT_DATA" = 1 ]; then
     echo "==> seg_dataset/ already present, skipping"
   else
     echo "==> downloading dataset (302 MB)"
-    gh release download data-v1 --pattern 'Archive.zip' --clobber
-    unzip -q -o Archive.zip -x '__MACOSX/*' -d .
-    rm -f Archive.zip
+    gh release download data-v1 --pattern 'seg_dataset.zip' --clobber
+    unzip -q -o seg_dataset.zip -d .
+    rm -f seg_dataset.zip
     echo "    images=$(find seg_dataset/images -name '*.png' | wc -l | tr -d ' ')" \
          "masks=$(find seg_dataset/masks -name '*.png' | wc -l | tr -d ' ')"
   fi

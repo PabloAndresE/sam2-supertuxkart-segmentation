@@ -40,7 +40,7 @@ bash scripts/fetch_assets.sh            # dataset + weights
 bash scripts/fetch_assets.sh --data     # dataset only
 ```
 
-It downloads one 302 MB zip rather than 3001 loose files — per-file overhead dominates
+It downloads one ~300 MB zip rather than 3001 loose files — per-file overhead dominates
 any sync of this dataset (iCloud served the loose files at 0.6 files/s, 6.4 h total,
 versus 3.5 s to unzip the archive).
 
