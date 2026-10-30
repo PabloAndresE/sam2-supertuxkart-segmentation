@@ -1,4 +1,4 @@
-"""Run the trained segmenter on a single image and save a side-by-side figure."""
+"""Run a trained segmenter on a single image and save a side-by-side figure."""
 
 from __future__ import annotations
 
@@ -13,25 +13,24 @@ from PIL import Image
 
 from stkseg.config import Config
 from stkseg.constants import CLASS_NAMES, DEVICE, IMAGENET_MEAN, IMAGENET_STD
-from stkseg.model import SAM2Segmenter
+from stkseg.registry import build_model
 from stkseg.viz import add_class_legend, mask_to_color
 
 
-def load_model(config_path: str, checkpoint: str, device: str) -> SAM2Segmenter:
+def load_model(config_path: str, checkpoint: str, device: str) -> torch.nn.Module:
     cfg = Config.from_yaml(config_path)
-    model = SAM2Segmenter(
-        encoder_name=cfg.model.encoder,
-        fpn_channels=cfg.model.fpn_channels,
-        width=cfg.model.decoder_width,
-        dropout=cfg.model.dropout,
-    ).to(device)
-    model.load_decoder(checkpoint, map_location=device)
+    model = build_model(cfg.model).to(device)
+    if hasattr(model, "load_decoder"):
+        model.load_decoder(checkpoint, map_location=device)
+    else:
+        state = torch.load(checkpoint, map_location=device, weights_only=True)
+        model.load_state_dict(state.get("decoder", state))
     model.eval()
     return model
 
 
-def segment(model: SAM2Segmenter, image: Image.Image, img_size=(512, 512), device: str = "cpu"):
-    """Return the predicted class map at ``img_size`` resolution."""
+def segment(model, image: Image.Image, img_size=(512, 512), device: str = "cpu"):
+    """Return the predicted class map plus the resized RGB input."""
     resized = image.convert("RGB").resize(tuple(img_size), Image.BILINEAR)
     tensor = TF.normalize(TF.to_tensor(resized), mean=IMAGENET_MEAN, std=IMAGENET_STD)
     with torch.no_grad():

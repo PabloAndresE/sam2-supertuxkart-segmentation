@@ -1,9 +1,10 @@
-"""Intersection-over-Union metrics."""
+"""Segmentation metrics: IoU, boundary IoU and confusion matrix."""
 
 from __future__ import annotations
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 
 from stkseg.constants import CLASS_NAMES, NUM_CLASSES
 
@@ -26,9 +27,7 @@ def iou_per_class(pred, target, num_classes: int = NUM_CLASSES) -> dict[str, flo
     """IoU for every class that is present in the prediction or the target."""
     inter, union = confusion_counts(pred, target, num_classes)
     return {
-        CLASS_NAMES[c]: float(inter[c] / union[c])
-        for c in range(num_classes)
-        if union[c] > 0
+        CLASS_NAMES[c]: float(inter[c] / union[c]) for c in range(num_classes) if union[c] > 0
     }
 
 
@@ -40,3 +39,54 @@ def mean_iou(pred, target, num_classes: int = NUM_CLASSES) -> float:
     """
     values = list(iou_per_class(pred, target, num_classes).values())
     return float(np.mean(values)) if values else 0.0
+
+
+def confusion_matrix(
+    pred: torch.Tensor, target: torch.Tensor, num_classes: int = NUM_CLASSES
+) -> np.ndarray:
+    """Row-normalised confusion matrix; entry (i, j) is P(predict j | truth i)."""
+    pred = pred.reshape(-1).to(torch.int64)
+    target = target.reshape(-1).to(torch.int64)
+    flat = torch.bincount(
+        target * num_classes + pred, minlength=num_classes * num_classes
+    ).reshape(num_classes, num_classes)
+    counts = flat.to(torch.float64).numpy()
+    totals = counts.sum(axis=1, keepdims=True)
+    return np.divide(counts, totals, out=np.zeros_like(counts), where=totals > 0)
+
+
+def _boundary_region(mask: torch.Tensor, num_classes: int, dilation: int) -> torch.Tensor:
+    """Pixels within ``dilation`` of a class boundary, as a (C, H, W) bool tensor."""
+    one_hot = F.one_hot(mask.to(torch.int64), num_classes)
+    one_hot = one_hot.permute(2, 0, 1).float().unsqueeze(0)
+    kernel = 2 * dilation + 1
+    eroded = -F.max_pool2d(-one_hot, kernel_size=kernel, stride=1, padding=dilation)
+    return (one_hot - eroded).squeeze(0).bool()
+
+
+def boundary_iou(
+    pred: torch.Tensor,
+    target: torch.Tensor,
+    num_classes: int = NUM_CLASSES,
+    dilation: int = 2,
+) -> dict[str, float]:
+    """IoU restricted to a thin band around object boundaries.
+
+    Standard IoU is dominated by region interiors, so a model can score well
+    while producing ragged edges. Since the whole premise here is that SAM 2
+    contributes boundary quality, measuring it directly is the honest check.
+    Expects a single 2-D mask pair.
+    """
+    if pred.ndim != 2 or target.ndim != 2:
+        raise ValueError("boundary_iou expects 2-D masks (H, W)")
+
+    pred_band = _boundary_region(pred, num_classes, dilation)
+    target_band = _boundary_region(target, num_classes, dilation)
+
+    scores = {}
+    for cls in range(num_classes):
+        p, t = pred_band[cls], target_band[cls]
+        union = (p | t).sum().item()
+        if union > 0:
+            scores[CLASS_NAMES[cls]] = (p & t).sum().item() / union
+    return scores

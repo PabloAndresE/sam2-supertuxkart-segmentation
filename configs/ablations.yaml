@@ -1,0 +1,42 @@
+# One axis varied at a time against configs/default.yaml.
+# Run with: python scripts/run_experiments.py --suite ablations
+#
+# Each entry overrides config sections; anything unset is inherited.
+
+# --- Does the frozen backbone matter, and does it have to be SAM 2? ---
+- name: backbone_sam2
+  model: {name: sam2}
+- name: backbone_convnext_frozen
+  model: {name: convnext_frozen}
+- name: backbone_unet_scratch
+  model: {name: unet}
+
+# --- Is multi-scale fusion earning its keep? ---
+- name: fpn_high_only
+  model: {fpn_levels: ["high"]}
+- name: fpn_low_only
+  model: {fpn_levels: ["low"]}
+- name: fpn_high_mid
+  model: {fpn_levels: ["high", "mid"]}
+- name: fpn_all
+  model: {fpn_levels: ["high", "mid", "low"]}
+
+# --- Which imbalance mechanism actually moves the rare classes? ---
+- name: loss_ce_only
+  loss: {ce_weight: 1.0, dice_weight: 0.0}
+- name: loss_dice_only
+  loss: {ce_weight: 0.0, dice_weight: 1.0}
+- name: loss_blend_30_70
+  loss: {ce_weight: 0.3, dice_weight: 0.7}
+- name: loss_unweighted_ce
+  loss: {class_weights: [1, 1, 1, 1, 1, 1, 1]}
+- name: no_oversampling
+  data: {oversample_factor: 1.0}
+
+# --- How much does the split protocol inflate the score? ---
+- name: split_random
+  data: {strategy: random}
+- name: split_temporal_block
+  data: {strategy: temporal_block}
+- name: split_track_holdout
+  data: {strategy: track_holdout}

@@ -1,17 +1,21 @@
-"""SuperTuxKart segmentation dataset and dataloader construction."""
+"""SuperTuxKart segmentation dataset, leakage-aware splits and dataloaders."""
 
 from __future__ import annotations
 
 import random
+import re
 from pathlib import Path
 
 import numpy as np
 import torch
 import torchvision.transforms.functional as TF
 from PIL import Image
-from torch.utils.data import DataLoader, Dataset, Subset, WeightedRandomSampler, random_split
+from torch.utils.data import DataLoader, Dataset, Subset, WeightedRandomSampler
 
 from stkseg.constants import IMAGENET_MEAN, IMAGENET_STD, NUM_CLASSES, RARE_CLASSES
+from stkseg.splits import SampleKey, describe, make_splits
+
+FRAME_RE = re.compile(r"^(?P<track>.+)_frame_(?P<index>\d+)$")
 
 
 class SuperTuxKartDataset(Dataset):
@@ -31,6 +35,7 @@ class SuperTuxKartDataset(Dataset):
         self.img_size = tuple(img_size)
         self.augment = augment
         self.samples: list[tuple[Path, Path]] = []
+        self.keys: list[SampleKey] = []
         self.sample_classes: list[set[int]] = []
 
         images_dir = self.root / "images"
@@ -39,14 +44,15 @@ class SuperTuxKartDataset(Dataset):
             raise FileNotFoundError(f"missing images directory: {images_dir}")
 
         for frame_path in sorted(images_dir.glob("*.png")):
-            parts = frame_path.stem.split("_frame_")
-            if len(parts) != 2:
+            matched = FRAME_RE.match(frame_path.stem)
+            if not matched:
                 continue
-            track_name, idx = parts
-            mask_path = masks_dir / f"{track_name}_mask_combined_{idx}.png"
+            track, index = matched["track"], matched["index"]
+            mask_path = masks_dir / f"{track}_mask_combined_{index}.png"
             if not mask_path.exists():
                 continue
             self.samples.append((frame_path, mask_path))
+            self.keys.append(SampleKey(track=track, frame_index=int(index)))
             self.sample_classes.append(set(np.unique(np.array(Image.open(mask_path))).tolist()))
 
         if not self.samples:
@@ -85,41 +91,52 @@ class SuperTuxKartDataset(Dataset):
         return image, mask
 
 
-def create_dataloaders(
+def build_dataloaders(
     root: str | Path,
     img_size=(512, 512),
     batch_size: int = 4,
-    val_split: float = 0.2,
+    strategy: str = "temporal_block",
+    fractions: tuple[float, float, float] = (0.7, 0.15, 0.15),
     seed: int = 42,
+    block_size: int = 25,
     oversample_factor: float = 5.0,
     num_workers: int = 0,
-) -> tuple[DataLoader, DataLoader]:
-    """Split train/val on a fixed seed; augment and oversample the train half only.
+    verbose: bool = True,
+) -> dict[str, DataLoader]:
+    """Train/val/test loaders with augmentation and oversampling on train only.
 
-    Validation reuses the non-augmented dataset instance so that reported mIoU
-    is measured on untouched frames.
+    Validation and test read from a non-augmented dataset instance so reported
+    scores describe untouched frames.
     """
     clean = SuperTuxKartDataset(root, img_size=img_size, augment=False)
     augmented = SuperTuxKartDataset(root, img_size=img_size, augment=True)
 
-    val_size = int(len(clean) * val_split)
-    train_set, val_set = random_split(
-        clean,
-        [len(clean) - val_size, val_size],
-        generator=torch.Generator().manual_seed(seed),
+    splits = make_splits(
+        clean.keys, strategy=strategy, fractions=fractions, seed=seed, block_size=block_size
     )
-    train_aug = Subset(augmented, train_set.indices)
+    if verbose:
+        print(f"split strategy: {strategy} (seed {seed})")
+        print(describe(clean.keys, splits))
 
+    train_idx = splits["train"]
     weights = [
-        oversample_factor if clean.sample_classes[i] & RARE_CLASSES else 1.0
-        for i in train_set.indices
+        oversample_factor if clean.sample_classes[i] & RARE_CLASSES else 1.0 for i in train_idx
     ]
     sampler = WeightedRandomSampler(weights, num_samples=len(weights), replacement=True)
 
-    train_loader = DataLoader(
-        train_aug, batch_size=batch_size, sampler=sampler, num_workers=num_workers
-    )
-    val_loader = DataLoader(
-        val_set, batch_size=batch_size, shuffle=False, num_workers=num_workers
-    )
-    return train_loader, val_loader
+    loaders = {
+        "train": DataLoader(
+            Subset(augmented, train_idx),
+            batch_size=batch_size,
+            sampler=sampler,
+            num_workers=num_workers,
+        )
+    }
+    for split in ("val", "test"):
+        loaders[split] = DataLoader(
+            Subset(clean, splits[split]),
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=num_workers,
+        )
+    return loaders

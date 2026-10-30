@@ -1,0 +1,7 @@
+# Variance estimate for the headline configuration.
+- name: seed_1
+  data: {seed: 1}
+- name: seed_2
+  data: {seed: 2}
+- name: seed_3
+  data: {seed: 3}

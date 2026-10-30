@@ -1,18 +1,28 @@
-# Baseline that produced the reported mIoU 0.8534 on the validation split.
+# Reference configuration.
+#
+# NOTE: `strategy` defaults to temporal_block, NOT random. The frames are
+# consecutive video, so a uniform split puts correlated frames on both sides of
+# the boundary (691 adjacent pairs cross splits under `random`, 26 under
+# `temporal_block`, 0 under `track_holdout`). Use `random` only to reproduce the
+# original coursework number.
 data:
   root: seg_dataset
   img_size: [512, 512]   # SAM 2 degrades noticeably below 512
   batch_size: 4          # encoder activations dominate memory at this resolution
-  val_split: 0.2
+  strategy: temporal_block
+  fractions: [0.7, 0.15, 0.15]
+  block_size: 25
   seed: 42
   oversample_factor: 5.0 # frames containing Nitro/Bomb/Projectile
   num_workers: 0
 
 model:
+  name: sam2            # sam2 | convnext_frozen | unet
   encoder: facebook/sam2.1-hiera-tiny
   fpn_channels: 256
   decoder_width: 128
   dropout: 0.1
+  fpn_levels: ["high", "mid", "low"]
 
 loss:
   ce_weight: 0.3
