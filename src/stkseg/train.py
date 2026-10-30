@@ -31,6 +31,18 @@ def autocast_context(device: str, enabled: bool):
     return nullcontext()
 
 
+def checkpoint_state(model: torch.nn.Module) -> dict:
+    """The weights a checkpoint must carry for `evaluate` to restore the model.
+
+    Only models with `load_decoder` (SAM 2) are saved as their decoder alone.
+    ConvNeXtSegmenter also has a `decoder`, but its trainable `lateral` convs
+    live outside it, so it - like every other model - is saved whole.
+    """
+    if hasattr(model, "load_decoder"):
+        return model.decoder.state_dict()
+    return model.state_dict()
+
+
 def evaluate_split(model, loader, criterion, device, amp: bool = False) -> tuple[float, float]:
     model.eval()
     total_loss, total_iou, batches = 0.0, 0.0, 0
@@ -114,12 +126,7 @@ def run(
         if val_iou > best_iou:
             best_iou, best_epoch = val_iou, epoch
             payload = {"config": cfg.to_dict(), "epoch": epoch, "val_iou": val_iou}
-            state = (
-                model.decoder.state_dict()
-                if hasattr(model, "decoder")
-                else model.state_dict()
-            )
-            torch.save({"decoder": state, **payload}, out_dir / "decoder_best.pt")
+            torch.save({"decoder": checkpoint_state(model), **payload}, out_dir / "decoder_best.pt")
 
         if not quiet:
             print(
