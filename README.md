@@ -55,43 +55,115 @@ Two further guarantees:
 
 ## Results
 
-> **Status: the headline number predates this protocol.** mIoU **0.8534** was obtained
-> with a `random` split, measured on the same validation set used to select the
-> checkpoint, from a single seed. It is reported here as the *legacy* figure and is
-> expected to drop under `temporal_block`, and to drop further under `track_holdout`.
-> Re-running the suite is the next step; the table below will be replaced with
-> mean ± std over three seeds for each protocol.
+All numbers in this section come from `configs/decisive.yaml`: five runs sharing one
+protocol (512×512, 60 epochs, batch 16, AMP, Adam 5e-4 with `ReduceLROnPlateau`, seed
+42), trained on a single NVIDIA H200. Validation scores are from `stkseg.evaluate`
+(dataset-level IoU), not from the training loop. **Every row is a single seed**, so
+differences of a few hundredths are not established — see Limitations.
 
-Legacy per-class IoU (random split, validation, seed 42):
+### How much did the split protocol inflate 0.8534?
 
-| Class | IoU | Pixel share |
-|---|---|---|
-| Background | 0.9102 | ~55% |
-| Track | 0.9044 | ~38% |
-| Kart | **0.9156** | ~5% |
-| Pickup | 0.8594 | <1% |
-| Nitro | 0.8037 | <0.5% |
-| Bomb | 0.7269 | <0.5% |
-| Projectile | **0.0000** | 2 frames out of 1500 |
-| **mean** | **0.8534** | |
+| Split | Val tracks | Classes in val | Val mIoU | Val mIoU, 6 shared classes | Boundary mIoU |
+|---|---|---|---|---|---|
+| `random` | all 6 | 6 | 0.8630 | 0.8630 | 0.4262 |
+| `temporal_block` | 5 | 7 | **0.7626** | 0.8897 | 0.3232 |
+| `track_holdout` | 1 (`abyss`) | 6 | **0.6910** | 0.6910 | 0.1804 |
 
-Two things worth reading honestly:
+The legacy figure, from a different run under the old protocol, is kept apart:
 
-- **Kart scores highest (0.9156) despite being a minority class.** It is a large object
-  with a crisp silhouette — exactly the prior SAM 2 was pre-trained on.
-- **Projectile is 0.0000 and no amount of rebalancing fixes it.** It appears in 2 of
-  1500 frames. Oversampling, a 15× loss weight and Dice all failed, because the problem
-  is the absence of data, not the objective. It stays in the mean rather than being
-  quietly dropped.
+| Legacy (coursework protocol, not comparable to the table above) | mIoU |
+|---|---|
+| `random` split, checkpoint selected and scored on the same validation set | 0.8534 |
 
-![Predictions versus ground truth](docs/assets/predictions.png)
+Read the "6 shared classes" column before drawing a conclusion. `mIoU` averages over the
+classes present in that validation set, and the three splits do not contain the same
+classes: `Projectile` (2 frames in the whole dataset) lands in the `temporal_block`
+validation set, where it scores 0.0000 and pulls the 7-class mean down, but is absent
+from the `random` and `track_holdout` validation sets. Restricting every split to the six
+classes they all contain separates the two effects:
 
-![Training curves](docs/assets/training_curves.png)
+- **Leakage between neighbouring frames did not measurably inflate the score.** On the
+  same six classes, `temporal_block` (0.8897) scored *higher* than `random` (0.8630).
+  The 0.10 gap in the headline column is entirely the Projectile term
+  (0.8897 × 6/7 = 0.7626), not leakage. The
+  validation sets differ in content as well as size, and this is one seed, so the
+  honest reading is "no inflation detected", not "temporal_block is easier".
+- **Unseen scenery is the real drop.** Held out on a track it never trained on, the
+  model scores 0.6910, 0.16 below the legacy 0.8534 and 0.20 below `temporal_block` on
+  the same classes. The losses are in the large classes (`Background` 0.6654,
+  `Track` 0.5274), i.e. the scenery itself, and boundary mIoU falls to 0.1804. Its best
+  validation epoch was 20 of 60: after that, fitting the four training tracks hurt the
+  fifth. That is one held-out track (`abyss`, 250 frames), so it is a single draw of
+  "unseen scenery", not an average over tracks.
 
-The mIoU plateau between epochs 14–46 is a learning-rate artifact: at `5e-4` the
-optimizer oscillates around the minimum. `ReduceLROnPlateau` cut it to `2.5e-4` at
-epoch 47 and `1.25e-4` at epoch 55, which is where the final 0.80 → 0.8534 gain comes
-from. A cosine schedule would likely get there sooner.
+![track_holdout: predictions on the unseen track](docs/assets/decisive/track_holdout_predictions_val.png)
+
+### Is a frozen backbone worth it, and does it have to be SAM 2?
+
+Same split (`temporal_block`), same validation set, same schedule:
+
+| Backbone | Frozen | Trainable | Val mIoU | Val mIoU, 6 classes | Boundary mIoU |
+|---|---|---|---|---|---|
+| SAM 2 Hiera-Tiny (frozen) | 27.2M | 2.07M | **0.7626** | **0.8897** | **0.3232** |
+| ConvNeXt-Tiny ImageNet (frozen) | 27.8M | 2.41M | 0.7429 | 0.8652 | 0.2714 |
+| U-Net from scratch | — | 7.77M | 0.7251 | 0.8460 | 0.3154 |
+
+SAM 2 leads ConvNeXt by 0.020 mIoU (0.025 on six classes) and 0.052 boundary mIoU at
+near-identical parameter budgets. With one seed per row that ordering is suggestive,
+not established: the seed suite (`configs/seeds.yaml`) has not been run, so the run-to-run
+spread is unknown and could be as large as the gap. The boundary result is the more
+interesting one: ConvNeXt has the lowest boundary mIoU of the three, below the U-Net
+trained from scratch, while SAM 2 has the highest — consistent with, though not proof
+of, the premise that SAM 2's value is boundary quality.
+
+### Chosen model: SAM 2, `temporal_block`
+
+Selected on validation mIoU among the three runs that share a validation set. Per-class
+results:
+
+| Class | Val IoU | Val boundary IoU | Test IoU | Test boundary IoU |
+|---|---|---|---|---|
+| Background | 0.9367 | 0.2041 | 0.9007 | 0.1969 |
+| Track | 0.9236 | 0.2624 | 0.8894 | 0.2809 |
+| Kart | 0.9243 | 0.5096 | 0.9339 | 0.5288 |
+| Pickup | 0.8964 | 0.5203 | 0.7641 | 0.4479 |
+| Nitro | 0.8541 | 0.3881 | 0.7033 | 0.2255 |
+| Bomb | 0.8031 | 0.3781 | 0.4471 | 0.1226 |
+| Projectile | 0.0000 | 0.0000 | *not in test split* | — |
+| **mean** | **0.7626** | **0.3232** | **0.7731** | **0.3004** |
+
+**Test mIoU 0.7731** (boundary 0.3004) is a one-shot final measurement: the test split
+was read once, on this model only, after selection, and that read is logged in
+`runs/decisive/split_temporal_block/test_evaluations.jsonl`. It averages six classes
+because `Projectile` does not occur in the test split; it is not comparable digit-for-digit
+with the seven-class validation mean. `Bomb` drops from 0.80 on validation to 0.45 on
+test, the largest per-class gap.
+
+`Projectile` stays in the validation mean at 0.0000. It appears in 2 of 1500 frames;
+oversampling, a 15× loss weight and Dice did not fix it, because the problem is missing
+data, not the objective. Dropping it would raise the validation mean to 0.8897, which is
+why the six-class column is labelled separately rather than used as the headline.
+
+![Predictions versus ground truth, validation](docs/assets/decisive/sam2_predictions_val.png)
+
+![Confusion matrix, validation](docs/assets/decisive/sam2_confusion_val.png)
+
+![Confusion matrix, test](docs/assets/decisive/sam2_confusion_test.png)
+
+![Training curves](docs/assets/decisive/sam2_training_curves.png)
+
+### Cost
+
+Wall-clock per run on one H200 (shared with other jobs), training plus checkpointing:
+`split_random` 7.8 min, `split_temporal_block` 10.5 min, `split_track_holdout` 8.7 min,
+`backbone_convnext_frozen` 7.2 min, `backbone_unet_scratch` 13.3 min. Preflight projected
+~3 s/epoch (~3 min per run); measured runs took 2.5–4× that.
+
+The aggregate table and the raw metrics are in
+[`runs/decisive/summary.md`](runs/decisive/summary.md) and
+`runs/decisive/*/metrics_val.json`. Its `val_iou` column is the training loop's
+batch-averaged selection score and its final "mean over 5 runs" line averages across
+different protocols; neither should be quoted as a result.
 
 ### Metrics
 
@@ -282,12 +354,20 @@ docs/assets/     figures and the full Spanish report (PDF)
 
 ## Limitations
 
-- **The headline number predates the current protocol** and will change. See Results.
-- Batch size is pinned at 4 by encoder activation memory at 512×512. Gradient
-  accumulation would allow a larger effective batch.
+- **Single seed.** Every number in Results is one run; `configs/seeds.yaml` has not been
+  run, so the SAM 2 vs ConvNeXt gap (0.020 mIoU) has no variance estimate behind it.
+- **Validation sets differ in class content across split strategies** (`Projectile` is
+  present only in the `temporal_block` validation set), so the headline mIoU column is
+  not a like-for-like comparison of splits; the six-class column is the control.
+- **`track_holdout` is one held-out track** (`abyss` for validation, `volcano_island`
+  for test). A leave-one-track-out loop over all six would give a mean and spread for
+  unseen scenery.
+- The test split of `temporal_block` contains no `Projectile`, so the test mean is over
+  six classes and the validation mean over seven.
+- `configs/default.yaml` (laptop) pins batch size at 4; the results above used
+  `configs/server.yaml` at batch 16 (2.4 GB peak in preflight on an H200).
 - Only Hiera-Tiny was tried. Hiera-Small/Base would separate encoder capacity from
   decoder design.
-- Single seed so far; the seed suite exists but has not been run on the real dataset.
 - `Projectile` is unlearnable from 2 frames. Copy-paste augmentation is the obvious
   next attempt.
 - Frames come from video but are treated as independent images. SAM 2's memory
