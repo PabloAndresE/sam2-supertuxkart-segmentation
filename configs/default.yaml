@@ -1,0 +1,28 @@
+# Baseline that produced the reported mIoU 0.8534 on the validation split.
+data:
+  root: seg_dataset
+  img_size: [512, 512]   # SAM 2 degrades noticeably below 512
+  batch_size: 4          # encoder activations dominate memory at this resolution
+  val_split: 0.2
+  seed: 42
+  oversample_factor: 5.0 # frames containing Nitro/Bomb/Projectile
+  num_workers: 0
+
+model:
+  encoder: facebook/sam2.1-hiera-tiny
+  fpn_channels: 256
+  decoder_width: 128
+  dropout: 0.1
+
+loss:
+  ce_weight: 0.3
+  dice_weight: 0.7
+  # Inversely proportional to pixel frequency.
+  class_weights: [0.5, 0.8, 3.0, 5.0, 8.0, 10.0, 15.0]
+
+train:
+  epochs: 60
+  lr: 0.0005
+  scheduler_patience: 5
+  scheduler_factor: 0.5
+  out_dir: runs/baseline

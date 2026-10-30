@@ -1,0 +1,4 @@
+[console_scripts]
+stkseg-eval = stkseg.evaluate:main
+stkseg-predict = stkseg.predict:main
+stkseg-train = stkseg.train:main

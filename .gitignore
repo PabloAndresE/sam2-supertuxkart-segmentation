@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# Data and weights are distributed out of band (see README).
+seg_dataset/
+runs/
+*.pt
+*.th
+*.zip
+
+.DS_Store
+.ipynb_checkpoints/
+.pytest_cache/
+.ruff_cache/

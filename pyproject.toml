@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stkseg"
+version = "0.1.0"
+description = "Multiclass semantic segmentation on SuperTuxKart with a frozen SAM 2 encoder"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Pablo Encalada" }]
+dependencies = [
+  "torch>=2.2",
+  "torchvision>=0.17",
+  "transformers>=4.56",
+  "numpy>=1.26",
+  "pillow>=10.0",
+  "matplotlib>=3.8",
+  "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+app = ["gradio>=4.44"]
+dev = ["pytest>=8.0", "ruff>=0.6"]
+
+[project.scripts]
+stkseg-train = "stkseg.train:main"
+stkseg-eval = "stkseg.evaluate:main"
+stkseg-predict = "stkseg.predict:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

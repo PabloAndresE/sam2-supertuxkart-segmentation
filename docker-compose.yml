@@ -1,0 +1,16 @@
+services:
+  demo:
+    build: .
+    ports:
+      - "7860:7860"
+    environment:
+      GRADIO_SERVER_NAME: 0.0.0.0
+      STKSEG_CHECKPOINT: /app/runs/baseline/decoder_best.pt
+      STKSEG_CONFIG: /app/configs/default.yaml
+    volumes:
+      # Decoder checkpoint (~8 MB) and the HF cache for the frozen encoder.
+      - ./runs:/app/runs:ro
+      - hf-cache:/cache/huggingface
+
+volumes:
+  hf-cache:

@@ -1,0 +1,10 @@
+{
+  "Background": 0.9102,
+  "Track": 0.9044,
+  "Kart": 0.9156,
+  "Pickup": 0.8594,
+  "Nitro": 0.8037,
+  "Bomb": 0.7269,
+  "Projectile": 0.0,
+  "mIoU": 0.8534
+}
