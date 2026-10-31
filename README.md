@@ -589,4 +589,8 @@ protocol, not the corrected one above.
 - Milletari et al., *V-Net* (2016) — Dice loss
 - Cheng et al., *Boundary IoU: Improving Object-Centric Image Segmentation Evaluation* (2021)
 
-MIT licensed.
+## Licence
+
+Code and decoder weights: MIT ([`LICENSE`](LICENSE)). The SAM 2 and ConvNeXt encoders are
+downloaded at load time, not redistributed. The dataset archive is rendered from
+SuperTuxKart and is distributed separately under CC-BY-SA 4.0 — see [`NOTICE.md`](NOTICE.md).
