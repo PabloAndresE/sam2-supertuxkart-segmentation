@@ -1,27 +1,33 @@
 # SuperTuxKart Semantic Segmentation with a Frozen SAM 2 Encoder
 
-Pixel-level segmentation of 7 game classes by freezing Meta's SAM 2 Hiera-Tiny vision
-encoder and training only a 2.1M-parameter multi-scale decoder on top of it —
-**7% of the network is trainable**, and the trained artifact is an **8 MB** decoder
-rather than a 117 MB checkpoint.
+[![ci](https://github.com/PabloAndresE/sam2-supertuxkart-segmentation/actions/workflows/ci.yml/badge.svg)](https://github.com/PabloAndresE/sam2-supertuxkart-segmentation/actions/workflows/ci.yml)
+[![licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
+[![model card](https://img.shields.io/badge/model-card-success.svg)](MODEL_CARD.md)
+
+Meta's SAM 2 Hiera-Tiny encoder is frozen; only a 2.1M-parameter decoder trains — **7% of
+the network**, shipped as an **8 MB** checkpoint. 38 training runs on H200s measure what
+that is worth, and what the original score actually meant.
 
 ![Live segmentation over consecutive frames](docs/assets/demo/abyss_live.gif)
 
-<sub>60 consecutive frames of `abyss`, 384px inference on an Apple M1 Pro: 55 ms/frame
-(18.1 fps). Input, the engine's ground truth, and the prediction, over a legend giving
-each class's share of that frame. Produced by `make demo`.</sub>
+### What the experiments found
 
-**Reading the overlay:** untinted pixels are predicted `Background`. Its palette entry is
-black, so tinting it would merely darken the frame and read as a missed region — every
-tinted pixel is therefore a non-background prediction, and the legend gives the real
-shares. Over these 60 frames the model predicts `Background` on 57.6% of pixels against
-62.2% in the ground truth, and `Track` on 40.1% against 35.6%. The classes shown greyed
-out are genuinely absent from that frame: `Pickup` occurs in 18 of the 60 frames,
-`Nitro` in 15, `Bomb` in 15, and `Projectile` in none — and at 0.02–0.3% of pixels they
-are a few dozen pixels when present. Pass `--tint-background` to colour background too.
+- **A selection score overstated generalisation by 0.117.** Picking the checkpoint by
+  validation mIoU and reporting that same number — what the original coursework did —
+  claimed 0.8897 where the held-out test split gives **0.7731**.
+- **The leakage hypothesis was wrong.** A random split puts 691 adjacent video frames
+  across the train/validation boundary, which *should* inflate the score. On the same
+  classes it did not: 0.8630 random versus 0.8897 leak-free. Recorded as rejected.
+- **Unseen scenery costs 0.157 ± 0.090**, and *which* track is held out swings the result
+  by 0.24 — **16× the noise from weight initialisation**, and larger than any modelling
+  choice tested, including the backbone.
+- **The flicker argument did not survive either.** Per-frame inference was expected to
+  make predictions jitter across video frames. The engine's own masks change 13.51% of
+  pixels between frames; the model's change 12.03%. It is *more* stable than the scene.
 
-
----
+Each of those is a hypothesis that was measured and, in three cases, discarded. The
+protocol that catches them — leakage-aware splits, a gated test set, ablations at matched
+parameter budgets — is the actual subject of this repository.
 
 ## The question
 
@@ -565,6 +571,11 @@ docs/assets/     figures and the full Spanish report (PDF)
   next attempt.
 - Frames come from video but are treated as independent images. SAM 2's memory
   attention — the part that makes it "2" — is unused.
+
+## Model card
+
+Intended use, training data, failure modes and the licensing position on redistributing
+rendered game frames: [`MODEL_CARD.md`](MODEL_CARD.md).
 
 ## Reference
 
