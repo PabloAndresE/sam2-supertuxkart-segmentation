@@ -1,0 +1,26 @@
+{
+  "iou_per_class": {
+    "Background": 0.7835041666579686,
+    "Track": 0.7728242901876524,
+    "Kart": 0.9252688945147234,
+    "Pickup": 0.747835973874001,
+    "Nitro": 0.5347464257770823,
+    "Bomb": 0.7863080684596577
+  },
+  "mIoU": 0.7584146365785142,
+  "mIoU_shared6": 0.7584146365785142,
+  "boundary_iou_per_class": {
+    "Background": 0.048612013129083066,
+    "Track": 0.15885367588317617,
+    "Kart": 0.47857183100197154,
+    "Pickup": 0.30028014206664044,
+    "Nitro": 0.3369595726647124,
+    "Bomb": 0.16521150985883243
+  },
+  "boundary_mIoU": 0.24808145743406937,
+  "split": "val",
+  "strategy": "track_holdout",
+  "seed": 42,
+  "checkpoint": "runs/loto/loto_olivermath/decoder_best.pt",
+  "timestamp": "2026-10-31T05:58:23"
+}

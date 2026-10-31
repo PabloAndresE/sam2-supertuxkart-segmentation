@@ -1,0 +1,26 @@
+{
+  "iou_per_class": {
+    "Background": 0.6649807793041432,
+    "Track": 0.5253342005510783,
+    "Kart": 0.8594227372351548,
+    "Pickup": 0.6607162979378732,
+    "Nitro": 0.7347314578005115,
+    "Bomb": 0.6612574978577549
+  },
+  "mIoU": 0.6844071617810861,
+  "mIoU_shared6": 0.6844071617810861,
+  "boundary_iou_per_class": {
+    "Background": 0.03141696947584717,
+    "Track": 0.05039357445654637,
+    "Kart": 0.26852881653012395,
+    "Pickup": 0.20506046873390849,
+    "Nitro": 0.3528519246433144,
+    "Bomb": 0.14908148838872096
+  },
+  "boundary_mIoU": 0.1762222070380769,
+  "split": "val",
+  "strategy": "track_holdout",
+  "seed": 42,
+  "checkpoint": "runs/loto/loto_abyss/decoder_best.pt",
+  "timestamp": "2026-10-31T05:58:36"
+}

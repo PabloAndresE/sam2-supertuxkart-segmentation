@@ -8,6 +8,7 @@
     "Bomb": 0.6847120979067746
   },
   "mIoU": 0.8698734822319834,
+  "mIoU_shared6": 0.8698734822319834,
   "boundary_iou_per_class": {
     "Background": 0.21972608354094353,
     "Track": 0.2986470758777469,
@@ -20,6 +21,6 @@
   "split": "val",
   "strategy": "random",
   "seed": 42,
-  "checkpoint": "runs/ablations/split_random/decoder_best.pt",
-  "timestamp": "2026-10-31T01:59:40"
+  "checkpoint": "runs/ablations/split_random//decoder_best.pt",
+  "timestamp": "2026-10-31T06:00:22"
 }

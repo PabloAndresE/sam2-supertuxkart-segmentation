@@ -8,6 +8,7 @@
     "Bomb": 0.6454922389963853
   },
   "mIoU": 0.6910449517795573,
+  "mIoU_shared6": 0.6910449517795573,
   "boundary_iou_per_class": {
     "Background": 0.031477946334493564,
     "Track": 0.05131081003505234,
@@ -21,5 +22,5 @@
   "strategy": "track_holdout",
   "seed": 42,
   "checkpoint": "runs/decisive/split_track_holdout//decoder_best.pt",
-  "timestamp": "2026-10-30T23:22:03"
+  "timestamp": "2026-10-31T05:49:24"
 }

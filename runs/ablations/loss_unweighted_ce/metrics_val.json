@@ -9,6 +9,7 @@
     "Projectile": 0.01341396871589669
   },
   "mIoU": 0.7676434409375433,
+  "mIoU_shared6": 0.8933483529744844,
   "boundary_iou_per_class": {
     "Background": 0.2490094516977026,
     "Track": 0.2973855906527349,
@@ -22,6 +23,6 @@
   "split": "val",
   "strategy": "temporal_block",
   "seed": 42,
-  "checkpoint": "runs/ablations/loss_unweighted_ce/decoder_best.pt",
-  "timestamp": "2026-10-31T01:54:36"
+  "checkpoint": "runs/ablations/loss_unweighted_ce//decoder_best.pt",
+  "timestamp": "2026-10-31T05:59:22"
 }

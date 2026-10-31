@@ -1,0 +1,28 @@
+{
+  "iou_per_class": {
+    "Background": 0.8295027782403698,
+    "Track": 0.8276218774776486,
+    "Kart": 0.9211027429584626,
+    "Pickup": 0.5587223445754343,
+    "Nitro": 0.7732718894009216,
+    "Bomb": 0.0,
+    "Projectile": 0.0
+  },
+  "mIoU": 0.5586030903789767,
+  "mIoU_shared6": 0.6517036054421396,
+  "boundary_iou_per_class": {
+    "Background": 0.03795991056333215,
+    "Track": 0.1475785770257986,
+    "Kart": 0.5230176524324807,
+    "Bomb": 0.0,
+    "Pickup": 0.3994997216947033,
+    "Nitro": 0.31316261880463864,
+    "Projectile": 0.0
+  },
+  "boundary_mIoU": 0.20303121150299333,
+  "split": "val",
+  "strategy": "track_holdout",
+  "seed": 42,
+  "checkpoint": "runs/loto/loto_hacienda/decoder_best.pt",
+  "timestamp": "2026-10-31T05:58:05"
+}

@@ -8,6 +8,7 @@
     "Bomb": 0.4717042247003841
   },
   "mIoU": 0.7915799305319221,
+  "mIoU_shared6": 0.7915799305319221,
   "boundary_iou_per_class": {
     "Background": 0.1564629058000798,
     "Track": 0.22931682206979012,
@@ -20,6 +21,6 @@
   "split": "val",
   "strategy": "temporal_block",
   "seed": 3,
-  "checkpoint": "runs/seeds_backbones/convnext_seed_3/decoder_best.pt",
-  "timestamp": "2026-10-31T00:38:09"
+  "checkpoint": "runs/seeds_backbones/convnext_seed_3//decoder_best.pt",
+  "timestamp": "2026-10-31T05:52:24"
 }

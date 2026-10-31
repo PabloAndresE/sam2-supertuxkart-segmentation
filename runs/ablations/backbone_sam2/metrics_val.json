@@ -9,6 +9,7 @@
     "Projectile": 0.0
   },
   "mIoU": 0.7583272798443517,
+  "mIoU_shared6": 0.8847151598184103,
   "boundary_iou_per_class": {
     "Background": 0.2244170457377902,
     "Track": 0.27527974157449747,
@@ -22,6 +23,6 @@
   "split": "val",
   "strategy": "temporal_block",
   "seed": 42,
-  "checkpoint": "runs/ablations/backbone_sam2/decoder_best.pt",
-  "timestamp": "2026-10-31T01:31:58"
+  "checkpoint": "runs/ablations/backbone_sam2//decoder_best.pt",
+  "timestamp": "2026-10-31T05:54:45"
 }

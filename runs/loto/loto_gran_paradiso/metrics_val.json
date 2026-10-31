@@ -1,0 +1,28 @@
+{
+  "iou_per_class": {
+    "Background": 0.919260422260717,
+    "Track": 0.9311399411444673,
+    "Kart": 0.9345157525971579,
+    "Pickup": 0.8359119980892227,
+    "Nitro": 0.6204226635088359,
+    "Bomb": 0.4827922077922078,
+    "Projectile": 0.0
+  },
+  "mIoU": 0.6748632836275156,
+  "mIoU_shared6": 0.7873404975654349,
+  "boundary_iou_per_class": {
+    "Background": 0.08716601690834011,
+    "Track": 0.2179418229944459,
+    "Kart": 0.5549187391952323,
+    "Pickup": 0.28093930127408473,
+    "Nitro": 0.13504859531706798,
+    "Bomb": 0.18333915869089765,
+    "Projectile": 0.0
+  },
+  "boundary_mIoU": 0.2084790906257241,
+  "split": "val",
+  "strategy": "track_holdout",
+  "seed": 42,
+  "checkpoint": "runs/loto/loto_gran_paradiso/decoder_best.pt",
+  "timestamp": "2026-10-31T05:57:59"
+}
