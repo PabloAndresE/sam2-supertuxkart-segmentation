@@ -66,7 +66,9 @@ def run(
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "config.json").write_text(json.dumps(cfg.to_dict(), indent=2))
 
-    torch.manual_seed(cfg.data.seed)
+    # Separate from the split seed: varying one at a time is the only way to
+    # tell initialisation noise apart from split-to-split variance.
+    torch.manual_seed(cfg.data.effective_init_seed)
 
     loaders = build_dataloaders(
         cfg.data.root,
@@ -76,6 +78,7 @@ def run(
         fractions=tuple(cfg.data.fractions),
         seed=cfg.data.seed,
         block_size=cfg.data.block_size,
+        holdout_tracks=cfg.data.holdout_tracks,
         oversample_factor=cfg.data.oversample_factor,
         num_workers=cfg.data.num_workers,
         verbose=not quiet,
@@ -147,7 +150,10 @@ def main() -> None:
     parser.add_argument("--data-root", default=None)
     parser.add_argument("--model", default=None, help="sam2 | convnext_frozen | unet")
     parser.add_argument("--strategy", default=None, help="random | temporal_block | track_holdout")
-    parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument("--seed", type=int, default=None, help="draws the split")
+    parser.add_argument(
+        "--init-seed", type=int, default=None, help="weight init only; defaults to --seed"
+    )
     parser.add_argument("--epochs", type=int, default=None)
     parser.add_argument("--out-dir", default=None)
     parser.add_argument("--batch-size", type=int, default=None)
@@ -165,6 +171,7 @@ def main() -> None:
             ("root", args.data_root),
             ("strategy", args.strategy),
             ("seed", args.seed),
+            ("init_seed", args.init_seed),
             ("batch_size", args.batch_size),
             ("num_workers", args.num_workers),
         )

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -39,6 +41,30 @@ def mean_iou(pred, target, num_classes: int = NUM_CLASSES) -> float:
     """
     values = list(iou_per_class(pred, target, num_classes).values())
     return float(np.mean(values)) if values else 0.0
+
+
+def mean_iou_over(
+    pred, target, classes: Sequence[str], num_classes: int = NUM_CLASSES
+) -> float | None:
+    """Mean IoU restricted to a fixed, explicitly named class list.
+
+    :func:`iou_per_class` includes any class with a non-empty union, so a class
+    the model hallucinates in a split where it does not occur enters the mean at
+    0.0, and two splits containing different classes produce means over
+    different denominators. Averaging a named list makes runs comparable by
+    construction. Returns ``None`` when a requested class is absent from both
+    prediction and target, since averaging it would be an invented number.
+    """
+    scores = iou_per_class(pred, target, num_classes)
+    if any(name not in scores for name in classes):
+        return None
+    return float(np.mean([scores[name] for name in classes]))
+
+
+#: The six classes present in every split of this dataset. Projectile occurs in
+#: 2 of 1500 frames, so whether it lands in a given validation set is luck, and
+#: its 0.0000 shifts a 7-class mean by ~0.13.
+SHARED_CLASSES = ("Background", "Track", "Kart", "Pickup", "Nitro", "Bomb")
 
 
 def confusion_matrix(

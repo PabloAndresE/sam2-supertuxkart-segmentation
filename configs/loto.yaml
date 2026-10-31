@@ -1,0 +1,21 @@
+# Leave-one-track-out: the headline "unseen scenery costs 0.20" currently rests
+# on a single held-out track (abyss). Six runs turn one draw into a mean with a
+# spread, and show whether the cost depends on which track is unseen.
+#
+# Each entry holds out one track for validation and the next for test, cycling
+# through all six, so every track is the unseen one exactly once.
+#
+#   sbatch --export=ALL,SUITE=configs/loto.yaml --array=0-5 scripts/slurm/suite.sbatch
+
+- name: loto_abyss
+  data: {strategy: track_holdout, holdout_tracks: ["abyss", "volcano_island"]}
+- name: loto_gran_paradiso
+  data: {strategy: track_holdout, holdout_tracks: ["gran_paradiso_island", "abyss"]}
+- name: loto_hacienda
+  data: {strategy: track_holdout, holdout_tracks: ["hacienda", "gran_paradiso_island"]}
+- name: loto_lighthouse
+  data: {strategy: track_holdout, holdout_tracks: ["lighthouse", "hacienda"]}
+- name: loto_olivermath
+  data: {strategy: track_holdout, holdout_tracks: ["olivermath", "lighthouse"]}
+- name: loto_volcano
+  data: {strategy: track_holdout, holdout_tracks: ["volcano_island", "olivermath"]}

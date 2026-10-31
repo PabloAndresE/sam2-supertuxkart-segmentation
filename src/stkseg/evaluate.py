@@ -20,7 +20,13 @@ from matplotlib import pyplot as plt
 from stkseg.config import Config
 from stkseg.constants import CLASS_NAMES, DEVICE
 from stkseg.data import build_dataloaders
-from stkseg.metrics import boundary_iou, confusion_matrix, iou_per_class
+from stkseg.metrics import (
+    SHARED_CLASSES,
+    boundary_iou,
+    confusion_matrix,
+    iou_per_class,
+    mean_iou_over,
+)
 from stkseg.registry import build_model
 from stkseg.viz import add_class_legend, denormalize, mask_to_color, overlay
 
@@ -47,6 +53,9 @@ def score(preds: torch.Tensor, targets: torch.Tensor) -> dict:
     return {
         "iou_per_class": per_class,
         "mIoU": float(np.mean(list(per_class.values()))),
+        # Comparable across splits; the plain mIoU above is not, because the
+        # class set present in a split varies.
+        "mIoU_shared6": mean_iou_over(preds, targets, SHARED_CLASSES),
         "boundary_iou_per_class": {k: float(np.mean(v)) for k, v in boundary.items()},
         "boundary_mIoU": float(np.mean([np.mean(v) for v in boundary.values()])),
     }
@@ -134,6 +143,7 @@ def main() -> None:
         fractions=tuple(cfg.data.fractions),
         seed=cfg.data.seed,
         block_size=cfg.data.block_size,
+        holdout_tracks=cfg.data.holdout_tracks,
     )
 
     model = build_model(cfg.model).to(args.device)
@@ -164,6 +174,8 @@ def main() -> None:
         boundary = results["boundary_iou_per_class"].get(name, float("nan"))
         print(f"  {name:12s} IoU {value:.4f}   boundary {boundary:.4f}")
     print(f"  {'mIoU':12s} {results['mIoU']:.4f}   boundary {results['boundary_mIoU']:.4f}")
+    shared = results.get("mIoU_shared6")
+    print(f"  {'mIoU (6)':12s} " + (f"{shared:.4f}" if shared is not None else "n/a"))
 
     plot_confusion(preds, targets, out_dir / f"confusion_{args.split}.png")
     qualitative_grid(

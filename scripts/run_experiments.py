@@ -42,6 +42,7 @@ def aggregate(root: Path) -> list[dict]:
         if metrics_path.exists():
             metrics = json.loads(metrics_path.read_text())
             row["mIoU"] = metrics.get("mIoU")
+            row["mIoU_shared6"] = metrics.get("mIoU_shared6")
             row["boundary_mIoU"] = metrics.get("boundary_mIoU")
         rows.append(row)
     return rows
@@ -51,7 +52,7 @@ def to_markdown(rows: list[dict]) -> str:
     if not rows:
         return "_no finished runs yet_\n"
 
-    columns = ["name", "val_iou", "mIoU", "boundary_mIoU"]
+    columns = ["name", "val_iou", "mIoU", "mIoU_shared6", "boundary_mIoU"]
     present = [c for c in columns if any(r.get(c) is not None for r in rows)]
     lines = ["| " + " | ".join(present) + " |", "|" + "---|" * len(present)]
     for row in rows:

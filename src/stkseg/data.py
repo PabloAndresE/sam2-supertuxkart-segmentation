@@ -99,6 +99,7 @@ def build_dataloaders(
     fractions: tuple[float, float, float] = (0.7, 0.15, 0.15),
     seed: int = 42,
     block_size: int = 25,
+    holdout_tracks: tuple[str, str] | None = None,
     oversample_factor: float = 5.0,
     num_workers: int = 0,
     verbose: bool = True,
@@ -112,7 +113,12 @@ def build_dataloaders(
     augmented = SuperTuxKartDataset(root, img_size=img_size, augment=True)
 
     splits = make_splits(
-        clean.keys, strategy=strategy, fractions=fractions, seed=seed, block_size=block_size
+        clean.keys,
+        strategy=strategy,
+        fractions=fractions,
+        seed=seed,
+        block_size=block_size,
+        holdout_tracks=holdout_tracks,
     )
     if verbose:
         print(f"split strategy: {strategy} (seed {seed})")

@@ -62,11 +62,17 @@ def make_splits(
     fractions: tuple[float, float, float] = (0.7, 0.15, 0.15),
     seed: int = 42,
     block_size: int = 25,
+    holdout_tracks: tuple[str, str] | None = None,
 ) -> dict[str, list[int]]:
     """Map each split name to the dataset indices it owns.
 
     Returns indices into ``keys``. The three lists are always disjoint and their
     union is every index, whatever the strategy.
+
+    ``holdout_tracks`` pins which ``(val, test)`` tracks are held out under
+    ``track_holdout`` instead of drawing them from the seed. Naming them is what
+    makes leave-one-track-out possible: the measured drop on unseen scenery is
+    otherwise a single random draw of one track.
     """
     if strategy not in STRATEGIES:
         raise ValueError(f"unknown strategy {strategy!r}, expected one of {STRATEGIES}")
@@ -87,6 +93,27 @@ def make_splits(
             raise ValueError(
                 f"track_holdout needs at least 3 tracks, found {len(groups)}"
             )
+
+        if holdout_tracks is not None:
+            val_track, test_track = holdout_tracks
+            missing = {val_track, test_track} - set(groups)
+            if missing:
+                raise ValueError(f"unknown holdout track(s) {sorted(missing)}")
+            if val_track == test_track:
+                raise ValueError("val and test holdout tracks must differ")
+            return {
+                "train": sorted(
+                    i
+                    for track, idx in groups.items()
+                    if track not in (val_track, test_track)
+                    for i in idx
+                ),
+                "val": sorted(groups[val_track]),
+                "test": sorted(groups[test_track]),
+            }
+
+    if holdout_tracks is not None and strategy != "track_holdout":
+        raise ValueError("holdout_tracks only applies to the track_holdout strategy")
 
     assigned = _assign(list(groups.keys()), fractions, seed)
     return {

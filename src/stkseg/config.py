@@ -18,9 +18,21 @@ class DataConfig:
     strategy: str = "temporal_block"
     fractions: tuple[float, float, float] = (0.7, 0.15, 0.15)
     block_size: int = 25
+    #: Draws the split. Kept named `seed` for backward compatibility with
+    #: configs and run directories produced before the seeds were separated.
     seed: int = 42
+    #: Seeds weight initialisation and shuffling. When None it falls back to
+    #: `seed`, which is what older runs did -- and why their "seed sweep"
+    #: varied the split as well as the initialisation, conflating the two.
+    init_seed: int | None = None
+    #: (val_track, test_track) for track_holdout; None draws them from `seed`.
+    holdout_tracks: tuple[str, str] | None = None
     oversample_factor: float = 5.0
     num_workers: int = 0
+
+    @property
+    def effective_init_seed(self) -> int:
+        return self.seed if self.init_seed is None else self.init_seed
 
 
 @dataclass
