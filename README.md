@@ -3,6 +3,7 @@
 [![ci](https://github.com/PabloAndresE/sam2-supertuxkart-segmentation/actions/workflows/ci.yml/badge.svg)](https://github.com/PabloAndresE/sam2-supertuxkart-segmentation/actions/workflows/ci.yml)
 [![licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 [![model card](https://img.shields.io/badge/model-card-success.svg)](MODEL_CARD.md)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/PabloAndresE/sam2-supertuxkart-segmentation/blob/main/notebooks/demo_colab.ipynb)
 
 Meta's SAM 2 Hiera-Tiny encoder is frozen; only a 2.1M-parameter decoder trains — **7% of
 the network**, shipped as an **8 MB** checkpoint. 38 training runs on H200s measure what
@@ -402,6 +403,17 @@ Design notes:
   much in a cascade. Whether this is worth it is what the FPN ablation tests.
 - Masks are always resized with `NEAREST`. Bilinear interpolation on a label map invents
   class ids that do not exist.
+
+## Try it without installing anything
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/PabloAndresE/sam2-supertuxkart-segmentation/blob/main/notebooks/demo_colab.ipynb)
+
+The Colab notebook clones the repo, pulls the 8 MB decoder from the release, and
+segments your own uploads on a free GPU. No local setup, no account beyond Google.
+
+A Gradio app also ships in [`app/app.py`](app/app.py) (`make app`) and a Hugging Face
+Space is scaffolded in [`spaces/`](spaces/), though HF now requires a paid plan to host
+Gradio Spaces — see [`spaces/DEPLOY.md`](spaces/DEPLOY.md).
 
 ## Running it over video
 

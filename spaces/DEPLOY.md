@@ -1,5 +1,15 @@
 # Deploying the Space
 
+> **Hugging Face now requires a PRO subscription to host Gradio or Docker Spaces**, even
+> on free `cpu-basic` hardware; `create_repo` returns `402 Payment Required`. Only static
+> (HTML/JS) Spaces remain free. The free click-through demo for this project is therefore
+> the [Colab notebook](../notebooks/demo_colab.ipynb). The instructions below still apply
+> if you take a PRO plan, or as a template for another host.
+>
+> A free alternative that would work here: export the encoder and decoder to ONNX and run
+> them in a **static** Space with ONNX Runtime Web. That is a sub-project, not a deploy
+> step — the fp16 encoder alone is roughly 55 MB to download into the browser.
+
 The Space holds no weights: it clones this repository and downloads the decoder from the
 GitHub release on first boot. **The release must be publicly reachable**, so either make
 the repository public or move `decoder_best.pt` to a public location first.
