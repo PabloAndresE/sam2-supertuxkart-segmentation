@@ -1,0 +1,25 @@
+{
+  "iou_per_class": {
+    "Background": 0.933965138366085,
+    "Track": 0.9264208465847799,
+    "Kart": 0.9380302516028027,
+    "Pickup": 0.889795035422638,
+    "Nitro": 0.8463175235088201,
+    "Bomb": 0.6847120979067746
+  },
+  "mIoU": 0.8698734822319834,
+  "boundary_iou_per_class": {
+    "Background": 0.21972608354094353,
+    "Track": 0.2986470758777469,
+    "Kart": 0.5565440533103448,
+    "Pickup": 0.5635772964871855,
+    "Nitro": 0.47809055641857007,
+    "Bomb": 0.38971715539489493
+  },
+  "boundary_mIoU": 0.417717036838281,
+  "split": "val",
+  "strategy": "random",
+  "seed": 42,
+  "checkpoint": "runs/ablations/split_random/decoder_best.pt",
+  "timestamp": "2026-10-31T01:59:40"
+}

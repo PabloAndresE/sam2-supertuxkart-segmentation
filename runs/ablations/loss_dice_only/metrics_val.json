@@ -1,0 +1,27 @@
+{
+  "iou_per_class": {
+    "Background": 0.8468994765135198,
+    "Track": 0.8344762709109005,
+    "Kart": 0.9234885309753972,
+    "Pickup": 0.869535001918908,
+    "Nitro": 0.8537868480725623,
+    "Bomb": 0.7983102791352605,
+    "Projectile": 0.0
+  },
+  "mIoU": 0.7323566296466497,
+  "boundary_iou_per_class": {
+    "Background": 0.10647569452784378,
+    "Track": 0.18015772599178964,
+    "Kart": 0.48091605753522154,
+    "Pickup": 0.4417722297135689,
+    "Nitro": 0.37136569604357766,
+    "Bomb": 0.42422659639371774,
+    "Projectile": 0.0
+  },
+  "boundary_mIoU": 0.28641628574367417,
+  "split": "val",
+  "strategy": "temporal_block",
+  "seed": 42,
+  "checkpoint": "runs/ablations/loss_dice_only/decoder_best.pt",
+  "timestamp": "2026-10-31T01:50:27"
+}

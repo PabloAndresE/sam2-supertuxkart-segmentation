@@ -55,11 +55,23 @@ Two further guarantees:
 
 ## Results
 
-All numbers in this section come from `configs/decisive.yaml`: five runs sharing one
-protocol (512×512, 60 epochs, batch 16, AMP, Adam 5e-4 with `ReduceLROnPlateau`, seed
-42), trained on a single NVIDIA H200. Validation scores are from `stkseg.evaluate`
-(dataset-level IoU), not from the training loop. **Every row is a single seed**, so
-differences of a few hundredths are not established — see Limitations.
+Every run here shares one protocol (`configs/server.yaml`: 512×512, 60 epochs, batch 16,
+AMP, Adam 5e-4 with `ReduceLROnPlateau`) and was trained on NVIDIA H200s. Validation
+scores are from `stkseg.evaluate` (dataset-level IoU), not from the training loop. The
+headline tables come from `configs/decisive.yaml` at seed 42; the variance estimate uses
+`configs/seeds.yaml` and `configs/seeds_backbones.yaml` (seeds 1–3), and the ablation
+table `configs/ablations.yaml` (seed 42). 29 training runs in total, all completed (plus
+one discarded ConvNeXt run whose checkpoint was incomplete; see the git log).
+
+**Two sources of noise, measured separately:**
+
+- *Same split, same seed, rerun:* five runs of the chosen configuration (four of them
+  duplicates inside the ablation suite) score 0.8881 ± 0.0022 (six-class mIoU, mean ± sd).
+  Initialisation and GPU nondeterminism are small.
+- *Different split:* `data.seed` also draws the `temporal_block` split, so seeds 1–3 put
+  different frames in validation (0–75 of 225 shared with seed 42). Across those four
+  splits the same model scores 0.8521 ± 0.0305 — fourteen times the rerun noise. **Which
+  frames land in validation matters far more than anything else measured here.**
 
 ### How much did the split protocol inflate 0.8534?
 
@@ -86,15 +98,16 @@ classes they all contain separates the two effects:
   same six classes, `temporal_block` (0.8897) scored *higher* than `random` (0.8630).
   The 0.10 gap in the headline column is entirely the Projectile term
   (0.8897 × 6/7 = 0.7626), not leakage. The
-  validation sets differ in content as well as size, and this is one seed, so the
-  honest reading is "no inflation detected", not "temporal_block is easier".
+  validation sets differ in content as well as size, and the split comparison was only
+  run at seed 42 (a rerun reproduced it: 0.8699 `random`, 0.8898 `temporal_block`), so
+  the honest reading is "no inflation detected", not "temporal_block is easier".
 - **Unseen scenery is the real drop.** Held out on a track it never trained on, the
   model scores 0.6910, 0.16 below the legacy 0.8534 and 0.20 below `temporal_block` on
   the same classes. The losses are in the large classes (`Background` 0.6654,
   `Track` 0.5274), i.e. the scenery itself, and boundary mIoU falls to 0.1804. Its best
   validation epoch was 20 of 60: after that, fitting the four training tracks hurt the
-  fifth. That is one held-out track (`abyss`, 250 frames), so it is a single draw of
-  "unseen scenery", not an average over tracks.
+  fifth. A rerun gave 0.6791. That is one held-out track (`abyss`, 250 frames), so it is
+  a single draw of "unseen scenery", not an average over tracks.
 
 ![track_holdout: predictions on the unseen track](docs/assets/decisive/track_holdout_predictions_val.png)
 
@@ -108,18 +121,41 @@ Same split (`temporal_block`), same validation set, same schedule:
 | ConvNeXt-Tiny ImageNet (frozen) | 27.8M | 2.41M | 0.7429 | 0.8652 | 0.2714 |
 | U-Net from scratch | — | 7.77M | 0.7251 | 0.8460 | 0.3154 |
 
-SAM 2 leads ConvNeXt by 0.020 mIoU (0.025 on six classes) and 0.052 boundary mIoU at
-near-identical parameter budgets. With one seed per row that ordering is suggestive,
-not established: the seed suite (`configs/seeds.yaml`) has not been run, so the run-to-run
-spread is unknown and could be as large as the gap. The boundary result is the more
-interesting one: ConvNeXt has the lowest boundary mIoU of the three, below the U-Net
-trained from scratch, while SAM 2 has the highest — consistent with, though not proof
-of, the premise that SAM 2's value is boundary quality.
+On this one split SAM 2 leads ConvNeXt by 0.025 (six classes), more than ten times the
+rerun noise. But the split itself is the larger source of variance, so the comparison
+that answers the question is **paired across splits**: every backbone trained on the
+same four `temporal_block` splits (seeds 42, 1, 2, 3), six-class validation mIoU:
+
+| Seed (split) | SAM 2 | ConvNeXt frozen | U-Net scratch | SAM 2 − ConvNeXt | SAM 2 − U-Net |
+|---|---|---|---|---|---|
+| 42 | 0.8897 | 0.8652 | 0.8460 | +0.0245 | +0.0437 |
+| 1 | 0.8643 | 0.8573 | 0.8659 | +0.0069 | −0.0016 |
+| 2 | 0.8279 | 0.8170 | 0.7240 | +0.0109 | +0.1039 |
+| 3 | 0.8266 | 0.7916 | 0.7438 | +0.0350 | +0.0828 |
+| **mean ± sd** | 0.8521 ± 0.0305 | 0.8328 ± 0.0346 | 0.7949 ± 0.0714 | **+0.0193 ± 0.0129** | +0.0572 ± 0.0465 |
+| 95% CI of the paired difference (t, 3 df) | | | | [−0.0011, +0.0398] | [−0.0168, +0.1312] |
+
+Boundary mIoU (six classes), same pairing: SAM 2 − ConvNeXt +0.0391 ± 0.0289,
+95% CI [−0.0068, +0.0850]; SAM 2 − U-Net +0.0154 ± 0.0228, CI [−0.0209, +0.0516].
+
+What this supports:
+
+- **SAM 2 beat ConvNeXt on all four splits**, by +0.019 on average at near-identical
+  parameter budgets, and on boundary IoU in three of four. With four pairs the 95%
+  interval just touches zero (a 4/4 sign test gives p = 0.125 two-sided). The direction
+  is consistent; its size is not pinned down. More splits would settle it cheaply.
+- **SAM 2 versus a U-Net trained from scratch is not established.** U-Net is far less
+  stable across splits (sd 0.071) and matched SAM 2 on seed 1.
+- The boundary claim — that SAM 2's value is edge quality — points the right way against
+  ConvNeXt but is not significant at four splits, and U-Net's boundary IoU is close to
+  SAM 2's.
 
 ### Chosen model: SAM 2, `temporal_block`
 
-Selected on validation mIoU among the three runs that share a validation set. Per-class
-results:
+Selected on validation mIoU among the three runs that share a validation set (seed 42).
+That split turned out to be the most favourable of the four measured: its six-class
+validation mIoU (0.8897) is the highest, against a four-split mean of 0.8521 ± 0.0305.
+Per-class results:
 
 | Class | Val IoU | Val boundary IoU | Test IoU | Test boundary IoU |
 |---|---|---|---|---|
@@ -157,7 +193,9 @@ why the six-class column is labelled separately rather than used as the headline
 Wall-clock per run on one H200 (shared with other jobs), training plus checkpointing:
 `split_random` 7.8 min, `split_temporal_block` 10.5 min, `split_track_holdout` 8.7 min,
 `backbone_convnext_frozen` 7.2 min, `backbone_unet_scratch` 13.3 min. Preflight projected
-~3 s/epoch (~3 min per run); measured runs took 2.5–4× that.
+~3 s/epoch (~3 min per run); measured runs took 2.5–4× that. The seed and ablation runs
+ran six at a time across two H200s on a CPU-saturated shared host, at 10–42 min each;
+those times measure contention, not the model.
 
 The aggregate table and the raw metrics are in
 [`runs/decisive/summary.md`](runs/decisive/summary.md) and
@@ -172,6 +210,13 @@ around class boundaries) and a row-normalised **confusion matrix**. Boundary IoU
 because plain IoU is dominated by region interiors: a model can score 0.43 on a class
 while producing no boundaries at all. Since the premise of this project is that SAM 2
 contributes boundary quality, measuring it directly is the relevant check.
+
+**A caveat on `mIoU` as implemented.** It averages over every class whose union of
+prediction and ground truth is non-empty. A class absent from the ground truth but
+*predicted* by the model therefore enters the mean as 0.0. This happened on seed 2:
+`Projectile` is not in that validation set, SAM 2 predicted a few pixels of it, and its
+mIoU dropped from 0.8279 (six classes) to 0.7097. The six-class columns above are
+immune to this and are the ones used for every comparison across runs.
 
 ## Baselines and ablations
 
@@ -188,6 +233,34 @@ controlled. Defined in [`configs/ablations.yaml`](configs/ablations.yaml):
 
 The ConvNeXt baseline is the one that matters: nearly the same frozen and trainable
 budget, so any gap is attributable to *what* the backbone learned, not to capacity.
+Results across four splits are in Results above.
+
+**Ablation results** — SAM 2, `temporal_block`, seed 42, one axis changed at a time.
+Six-class validation mIoU; the reference configuration scores 0.8881 ± 0.0022 over five
+reruns, so differences under ~0.005 are noise. All rows share one split, so they show
+what matters *on that split*; they have not been repeated across splits.
+
+| Change from reference | mIoU (6 cls) | Δ vs 0.8881 | Boundary (6 cls) | Pickup | Nitro | Bomb |
+|---|---|---|---|---|---|---|
+| none (reference: all FPN levels, CE 0.3 + Dice 0.7, class weights, oversampling ×5) | 0.8881 | — | 0.3755 | 0.89 | 0.85 | 0.80 |
+| FPN `high` + `mid` only | 0.8512 | −0.037 | 0.3188 | 0.83 | 0.84 | 0.73 |
+| FPN `low` only | 0.8050 | −0.083 | 0.1729 | 0.85 | 0.65 | 0.63 |
+| FPN `high` only | 0.7661 | −0.122 | 0.2740 | 0.60 | 0.82 | 0.55 |
+| Dice only | 0.8544 | −0.034 | 0.3342 | 0.87 | 0.85 | 0.80 |
+| CE only | 0.8168 | −0.071 | 0.2601 | 0.82 | 0.75 | 0.56 |
+| no class weights (blend kept) | 0.8933 | +0.005 | 0.3916 | 0.90 | 0.86 | 0.80 |
+| no oversampling | 0.8788 | −0.009 | 0.3614 | 0.89 | 0.84 | 0.76 |
+
+- **Multi-scale fusion earns its keep.** Every subset of FPN levels loses 0.04–0.12;
+  `low` alone keeps region IoU but halves boundary IoU, `high` alone loses small objects.
+- **The CE + Dice blend matters; class weights do not.** CE alone collapses on `Bomb`
+  (0.56); Dice alone loses the large classes (`Background` 0.85, `Track` 0.83). Removing
+  the class weights changed nothing beyond noise (+0.005, at the edge of the rerun range).
+- **Oversampling helps a little**, mostly on `Bomb` (0.76 without, ~0.80 with).
+- **Nothing fixes `Projectile`.** Its best score in any ablation is 0.031 (CE only).
+
+Per-run numbers: `runs/ablations/summary.md`, `runs/seeds/summary.md`,
+`runs/seeds_backbones/summary.md` and each run's `metrics_val.json`.
 
 **Other axes:** FPN level subsets (`high` / `low` / `high+mid` / all three), loss
 composition (CE only, Dice only, the 30/70 blend, unweighted CE), oversampling on/off,
@@ -354,8 +427,21 @@ docs/assets/     figures and the full Spanish report (PDF)
 
 ## Limitations
 
-- **Single seed.** Every number in Results is one run; `configs/seeds.yaml` has not been
-  run, so the SAM 2 vs ConvNeXt gap (0.020 mIoU) has no variance estimate behind it.
+- **Four splits is not many.** The SAM 2 − ConvNeXt paired difference (+0.019) is
+  positive on all four but its 95% interval still touches zero. Adding seeds to
+  `configs/seeds.yaml` and `configs/seeds_backbones.yaml` is the cheapest way to settle it.
+- **`data.seed` controls both the split and the initialisation**, so the seed suites
+  measure the two together. The split dominates (sd 0.031 vs 0.002 for reruns on a fixed
+  split), but separating them properly needs a training seed independent of the split
+  seed.
+- **The chosen model's split was the most favourable of the four on validation** (0.8897
+  vs a four-split mean of 0.8521). The model was chosen and the test split read once
+  before the other splits were run. Whether seed 42's *test* split is similarly easy was
+  not measured — doing so would mean reading other test splits, which the protocol forbids.
+- **Ablations are on one split.** Their ranking is far outside rerun noise, but they
+  were not repeated across splits.
+- **`mIoU` counts predicted-only classes as 0.0** (see Metrics); the six-class columns
+  are the like-for-like comparison.
 - **Validation sets differ in class content across split strategies** (`Projectile` is
   present only in the `temporal_block` validation set), so the headline mIoU column is
   not a like-for-like comparison of splits; the six-class column is the control.
