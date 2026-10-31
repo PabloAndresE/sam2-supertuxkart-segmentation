@@ -96,7 +96,7 @@ Three sources of noise, measured separately on SAM 2 (`mIoU_shared6`, mean ± sd
 | Nothing (same split, same init seed; GPU nondeterminism only) | 5 | 0.8881 ± 0.0022 |
 | Initialisation (`init_seed` 42, 1, 2, 3; split fixed at seed 42) | 4 | 0.8882 ± 0.0056 |
 | Which frames land in validation (`seed` 42, 1, 2, 3; split and init together) | 4 | 0.8521 ± 0.0305 |
-| Which **track** is unseen (leave-one-track-out, 6 tracks) | 6 | 0.7108 ± 0.0911 |
+| Which **track** is unseen (leave-one-track-out, 6 tracks) | 6 | 0.7325 ± 0.0897 |
 
 Initialisation noise is small. The split is five times larger, and which track is held
 out is three times larger again.
@@ -136,24 +136,26 @@ for test, unread), training on the remaining four. SAM 2, seed 42:
 |---|---|---|---|---|---|
 | `lighthouse` | 0.8105 | 0.8105 | 0.2384 | Bomb 0.55 | −0.079 |
 | `gran_paradiso_island` | 0.6749 | 0.7873 | 0.2085 | Bomb 0.48, Nitro 0.62 | −0.102 |
+| `hacienda` † | 0.5586 | 0.7820 | 0.2030 | Pickup 0.56 | −0.108 |
 | `olivermath` | 0.7584 | 0.7584 | 0.2481 | Nitro 0.54 | −0.131 |
 | `abyss` | 0.6844 | 0.6844 | 0.1762 | Track 0.53, Background 0.67 | −0.205 |
-| `hacienda` | 0.5586 | 0.6517 † | 0.2030 | Bomb 0.00 †, Pickup 0.56 | −0.238 † |
 | `volcano_island` | 0.4905 | 0.5723 | 0.1470 | Nitro 0.15, Bomb 0.44 | −0.317 |
-| **mean ± sd** | | **0.7108 ± 0.0911** | 0.2035 ± 0.0378 | | **−0.179** |
+| **mean ± sd** | | **0.7325 ± 0.0897** | 0.2035 ± 0.0378 | | **−0.157** |
 
-† `hacienda` contains **no** `Bomb` in any of its 250 frames. The model predicted some,
-so `Bomb` enters `mIoU_shared6` at 0.0000 — the hallucination artifact the column was
-meant to remove, which reappears when validation is a single track. Over the five classes
-`hacienda` actually contains, the score is 0.7820, and the six-track mean becomes
-0.7325 ± 0.0897. The table keeps the metric as defined; read `hacienda` with this caveat.
+† `hacienda` contains **no** `Bomb` in any of its 250 frames, and the model predicted
+some. Scoring that as a missed class would charge the mean for a false positive, so
+`mIoU_shared6` averages over the classes present in the ground truth — five for
+`hacienda`, six elsewhere — and the invented class is reported separately in
+`hallucinated_classes`. The denominator is a property of the split, not of the model's
+mistakes. Ground-truth class presence was verified directly from the mask files.
 
 What this says:
 
 - **The single-track figure was one draw from a wide range.** The earlier "unseen scenery
-  costs 0.20" came from `abyss` alone. Across all six tracks the cost runs from 0.08
-  (`lighthouse`) to 0.32 (`volcano_island`); the mean is 0.18. The track that happens to
-  be held out moves the answer more than any modelling choice measured here.
+  costs 0.20" came from `abyss` alone, which turns out to be the second-worst of the six.
+  Across all tracks the cost runs from 0.08 (`lighthouse`) to 0.32 (`volcano_island`);
+  the mean is 0.16. The track that happens to be held out moves the answer by 0.24 —
+  more than any modelling choice measured here, and thirteen times initialisation noise.
 - **Rare classes and scenery fail differently by track.** `abyss` loses the large
   classes (`Track` 0.53): the scenery itself is unfamiliar. `volcano_island` loses
   `Nitro` (0.15), which appears in only 31 of its frames. `lighthouse` barely drops.
@@ -494,10 +496,11 @@ docs/assets/     figures and the full Spanish report (PDF)
   held out for test. Its gap to `temporal_block` (which trains on frames from all six)
   mixes unseen scenery with less training variety. It is one run per track; reruns on
   `abyss` agree within ±0.006.
-- **`mIoU_shared6` assumes all six classes are in the split.** Single-track validation
-  breaks this (`hacienda` has no `Bomb`), so a hallucinated class can still enter at 0.0.
-  Returning `None` or a five-class mean when a class is absent from the ground truth
-  would fix it; doing so changes one published LOTO value, so it was left as is.
+- **`mIoU_shared6` scores only classes present in the ground truth**, so its denominator
+  varies between splits (five for `hacienda`, six elsewhere). That is deliberate — the
+  alternative charges a model for predicting a class the split does not contain — but it
+  means the column is a mean over "classes that could be scored", not always six.
+  Hallucinated classes are reported alongside rather than folded into the score.
 - **Ablations are on one split.** The FPN and loss-composition effects are far outside
   initialisation noise; smaller effects (oversampling, class weights) are not.
 - The test split of `temporal_block` contains no `Projectile`, so the plain test `mIoU`

@@ -22,5 +22,14 @@
   "strategy": "track_holdout",
   "seed": 42,
   "checkpoint": "runs/loto/loto_olivermath/decoder_best.pt",
-  "timestamp": "2026-10-31T05:58:23"
+  "timestamp": "2026-10-31T05:58:23",
+  "classes_scored": [
+    "Background",
+    "Track",
+    "Kart",
+    "Pickup",
+    "Nitro",
+    "Bomb"
+  ],
+  "hallucinated_classes": []
 }

@@ -9,7 +9,7 @@
     "Projectile": 0.0
   },
   "mIoU": 0.6748632836275156,
-  "mIoU_shared6": 0.7873404975654349,
+  "mIoU_shared6": 0.7873404975654347,
   "boundary_iou_per_class": {
     "Background": 0.08716601690834011,
     "Track": 0.2179418229944459,
@@ -24,5 +24,14 @@
   "strategy": "track_holdout",
   "seed": 42,
   "checkpoint": "runs/loto/loto_gran_paradiso/decoder_best.pt",
-  "timestamp": "2026-10-31T05:57:59"
+  "timestamp": "2026-10-31T05:57:59",
+  "classes_scored": [
+    "Background",
+    "Track",
+    "Kart",
+    "Pickup",
+    "Nitro",
+    "Bomb"
+  ],
+  "hallucinated_classes": []
 }

@@ -8,7 +8,7 @@
     "Bomb": 0.6612574978577549
   },
   "mIoU": 0.6844071617810861,
-  "mIoU_shared6": 0.6844071617810861,
+  "mIoU_shared6": 0.684407161781086,
   "boundary_iou_per_class": {
     "Background": 0.03141696947584717,
     "Track": 0.05039357445654637,
@@ -22,5 +22,14 @@
   "strategy": "track_holdout",
   "seed": 42,
   "checkpoint": "runs/loto/loto_abyss/decoder_best.pt",
-  "timestamp": "2026-10-31T05:58:36"
+  "timestamp": "2026-10-31T05:58:36",
+  "classes_scored": [
+    "Background",
+    "Track",
+    "Kart",
+    "Pickup",
+    "Nitro",
+    "Bomb"
+  ],
+  "hallucinated_classes": []
 }

@@ -43,22 +43,46 @@ def mean_iou(pred, target, num_classes: int = NUM_CLASSES) -> float:
     return float(np.mean(values)) if values else 0.0
 
 
+def classes_in_ground_truth(target, classes: Sequence[str], num_classes: int = NUM_CLASSES):
+    """Which of ``classes`` actually occur in the ground truth."""
+    present = set(torch.unique(target.reshape(-1)).tolist())
+    return [name for name in classes if CLASS_NAMES.index(name) in present]
+
+
+def hallucinated_classes(pred, target, classes: Sequence[str], num_classes: int = NUM_CLASSES):
+    """Classes the model predicted that do not occur in the ground truth at all."""
+    predicted = set(torch.unique(pred.reshape(-1)).tolist())
+    truth = set(torch.unique(target.reshape(-1)).tolist())
+    return [
+        name
+        for name in classes
+        if CLASS_NAMES.index(name) in predicted - truth
+    ]
+
+
 def mean_iou_over(
     pred, target, classes: Sequence[str], num_classes: int = NUM_CLASSES
 ) -> float | None:
-    """Mean IoU restricted to a fixed, explicitly named class list.
+    """Mean IoU over the requested classes **that occur in the ground truth**.
 
-    :func:`iou_per_class` includes any class with a non-empty union, so a class
-    the model hallucinates in a split where it does not occur enters the mean at
-    0.0, and two splits containing different classes produce means over
-    different denominators. Averaging a named list makes runs comparable by
-    construction. Returns ``None`` when a requested class is absent from both
-    prediction and target, since averaging it would be an invented number.
+    Two failure modes this avoids:
+
+    - :func:`iou_per_class` keys on a non-empty union, so a class the model
+      invents in a split where it does not exist enters the mean at 0.0. That is
+      a false positive being scored as a missed class; it belongs in
+      :func:`hallucinated_classes`, not in the average.
+    - Splits containing different class sets otherwise average over different
+      denominators and are not comparable.
+
+    Returns ``None`` when none of the requested classes occur, rather than
+    inventing a number. Scoring only ground-truth classes means the denominator
+    is a property of the data, not of the model's mistakes.
     """
-    scores = iou_per_class(pred, target, num_classes)
-    if any(name not in scores for name in classes):
+    scoreable = classes_in_ground_truth(target, classes, num_classes)
+    if not scoreable:
         return None
-    return float(np.mean([scores[name] for name in classes]))
+    scores = iou_per_class(pred, target, num_classes)
+    return float(np.mean([scores.get(name, 0.0) for name in scoreable]))
 
 
 #: The six classes present in every split of this dataset. Projectile occurs in

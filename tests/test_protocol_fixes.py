@@ -4,7 +4,12 @@ import pytest
 import torch
 
 from stkseg.config import DataConfig
-from stkseg.metrics import SHARED_CLASSES, mean_iou_over
+from stkseg.metrics import (
+    SHARED_CLASSES,
+    classes_in_ground_truth,
+    hallucinated_classes,
+    mean_iou_over,
+)
 from stkseg.splits import make_splits
 
 
@@ -62,30 +67,48 @@ class TestNamedHoldoutTracks:
             make_splits(keys, strategy="temporal_block", holdout_tracks=("abyss", "hacienda"))
 
 
-class TestSharedClassMean:
-    """Plain mIoU is not comparable across splits with different class sets."""
+class TestGroundTruthRestrictedMean:
+    """A class the model invents must not be scored as a class it missed."""
 
     def test_fixed_list_ignores_an_extra_present_class(self):
-        # Projectile (6) predicted correctly in one split, absent in another:
-        # the shared-six mean must not move.
         base = torch.tensor([0, 1, 2, 3, 4, 5])
         with_extra = torch.tensor([0, 1, 2, 3, 4, 5, 6])
         assert mean_iou_over(base.clone(), base, SHARED_CLASSES) == pytest.approx(1.0)
         assert mean_iou_over(with_extra.clone(), with_extra, SHARED_CLASSES) == pytest.approx(1.0)
 
-    def test_hallucinated_class_drags_the_plain_mean_further(self):
-        """A class absent from the target but predicted inflates the denominator."""
+    def test_missed_class_present_in_truth_is_scored_zero(self):
         from stkseg.metrics import mean_iou
 
         target = torch.tensor([0, 1, 2, 3, 4, 5])
         pred = torch.tensor([0, 1, 2, 3, 4, 6])  # Bomb missed, Projectile invented
-
-        # Shared-six: Bomb is genuinely in the target and missed, so it counts 0.
+        # Bomb is genuinely in the truth and was missed: it counts, at 0.
         assert mean_iou_over(pred, target, SHARED_CLASSES) == pytest.approx(5 / 6)
         # Plain mIoU additionally averages in the invented Projectile at 0.
         assert mean_iou(pred, target) == pytest.approx(5 / 7)
-        assert mean_iou(pred, target) < mean_iou_over(pred, target, SHARED_CLASSES)
+
+    def test_hallucinated_class_absent_from_truth_is_excluded(self):
+        """The `hacienda` case: a track with no Bomb, where the model predicts one."""
+        target = torch.tensor([0, 0, 1, 1, 2, 3, 4])      # no Bomb anywhere
+        pred = torch.tensor([0, 0, 1, 1, 2, 3, 5])        # Nitro missed, Bomb invented
+
+        scored = classes_in_ground_truth(target, SHARED_CLASSES)
+        assert "Bomb" not in scored
+        assert hallucinated_classes(pred, target, SHARED_CLASSES) == ["Bomb"]
+
+        # Averaged over the five classes the track contains, not six.
+        value = mean_iou_over(pred, target, SHARED_CLASSES)
+        assert value == pytest.approx(4 / 5)
+
+    def test_denominator_follows_the_data_not_the_models_mistakes(self):
+        """Two models on the same truth share a denominator, however they err."""
+        target = torch.tensor([0, 1, 2, 3, 4])            # five classes, no Bomb
+        honest = torch.tensor([0, 1, 2, 3, 4])
+        hallucinating = torch.tensor([0, 1, 2, 3, 5])
+
+        assert len(classes_in_ground_truth(target, SHARED_CLASSES)) == 5
+        assert mean_iou_over(honest, target, SHARED_CLASSES) == pytest.approx(1.0)
+        assert mean_iou_over(hallucinating, target, SHARED_CLASSES) == pytest.approx(4 / 5)
 
     def test_returns_none_rather_than_inventing_a_number(self):
-        target = torch.tensor([0, 1])
+        target = torch.tensor([6, 6])  # only Projectile, none of the shared six
         assert mean_iou_over(target.clone(), target, SHARED_CLASSES) is None
