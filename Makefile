@@ -33,8 +33,8 @@ bench:
 
 demo:
 	python -m stkseg.live --frames seg_dataset --track abyss --start 100 --count 60 \
-	  --size 384 --scale 0.7 --gif docs/assets/demo/abyss_live.gif \
-	  --mp4 docs/assets/demo/abyss_live.mp4
+	  --with-truth --size 384 --scale 0.62 \
+	  --gif docs/assets/demo/abyss_live.gif --mp4 docs/assets/demo/abyss_live.mp4
 
 app:
 	python app/app.py

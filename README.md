@@ -7,9 +7,18 @@ rather than a 117 MB checkpoint.
 
 ![Live segmentation over consecutive frames](docs/assets/demo/abyss_live.gif)
 
-<sub>60 consecutive frames of `abyss`, 384px inference on an Apple M1 Pro: 56 ms/frame
-(17.8 fps). Left: raw frame. Right: predicted overlay. Produced by
-`python -m stkseg.live --frames seg_dataset --track abyss --gif demo.gif`.</sub>
+<sub>60 consecutive frames of `abyss`, 384px inference on an Apple M1 Pro: 55 ms/frame
+(18.1 fps). Input, the engine's ground truth, and the prediction, over a legend giving
+each class's share of that frame. Produced by `make demo`.</sub>
+
+**Reading the overlay:** untinted pixels are predicted `Background`. Its palette entry is
+black, so tinting it would merely darken the frame and read as a missed region — every
+tinted pixel is therefore a non-background prediction, and the legend gives the real
+shares. Over these 60 frames the model predicts `Background` on 57.6% of pixels against
+62.2% in the ground truth, and `Track` on 40.1% against 35.6%. The classes shown greyed
+out are genuinely absent from that frame: `Pickup` occurs in 18 of the 60 frames,
+`Nitro` in 15, `Bomb` in 15, and `Projectile` in none — and at 0.02–0.3% of pixels they
+are a few dozen pixels when present. Pass `--tint-background` to colour background too.
 
 
 ---

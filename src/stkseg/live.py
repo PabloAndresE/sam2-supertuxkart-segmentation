@@ -31,12 +31,14 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 from stkseg.config import Config
-from stkseg.constants import COLORS, DEVICE
+from stkseg.constants import CLASS_NAMES, COLORS, DEVICE
 from stkseg.data import FRAME_RE
 from stkseg.predict import load_model, segment
 
 PANEL_GAP = 8
 HUD_HEIGHT = 28
+LEGEND_HEIGHT = 46
+SWATCH = 11
 
 
 def ground_truth_masks(root: Path, track: str, start: int, count: int, size) -> list[np.ndarray]:
@@ -121,18 +123,75 @@ def frames_from_capture(region: tuple[int, int, int, int], count: int) -> Iterat
             yield Image.frombytes("RGB", shot.size, shot.bgra, "raw", "BGRX")
 
 
-def compose(rgb: np.ndarray, mask: np.ndarray, hud: str, alpha: float) -> Image.Image:
-    """Input beside its overlay, with a caption strip underneath."""
-    colored = COLORS[mask]
-    blended = (rgb * (1 - alpha) + colored * alpha).astype(np.uint8)
+def _draw_legend(draw: ImageDraw.ImageDraw, mask: np.ndarray, top: int, width: int) -> None:
+    """One swatch per class with its share of this frame.
 
+    Without this the demo is unreadable: `Background` is black in the palette,
+    so tinting it only darkens the frame and looks identical to "nothing
+    detected", and `Nitro`/`Bomb` occupy a few hundredths of a percent of the
+    pixels -- present, but far too small to see.
+    """
+    total = mask.size
+    x, y = 6, top
+    for index, name in enumerate(CLASS_NAMES):
+        share = 100 * float((mask == index).sum()) / total
+        active = share > 0
+        colour = tuple(int(v) for v in COLORS[index])
+        if not active:
+            colour = tuple(max(28, c // 4) for c in colour)
+
+        draw.rectangle([x, y + 2, x + SWATCH, y + 2 + SWATCH], fill=colour,
+                       outline=(90, 90, 90))
+        text = f"{name} {share:.2f}%" if active else f"{name} -"
+        draw.text((x + SWATCH + 5, y), text,
+                  fill=(235, 235, 235) if active else (110, 110, 110))
+
+        x += SWATCH + 10 + 8 * len(text)
+        if x > width - 90:
+            x, y = 6, y + 16
+
+
+def colourise(rgb: np.ndarray, mask: np.ndarray, alpha: float, tint_background: bool):
+    """Blend the class colours over the frame.
+
+    ``Background`` is left untouched by default: its palette entry is black, so
+    blending it darkens the image instead of marking it, which reads as a
+    missed region. Untinted pixels are therefore "predicted background", and
+    every tinted pixel is a non-background prediction.
+    """
+    blended = rgb.astype(np.float32).copy()
+    coloured = COLORS[mask].astype(np.float32)
+    region = np.ones(mask.shape, dtype=bool) if tint_background else (mask != 0)
+    blended[region] = rgb[region] * (1 - alpha) + coloured[region] * alpha
+    return blended.astype(np.uint8)
+
+
+def compose(
+    rgb: np.ndarray,
+    mask: np.ndarray,
+    hud: str,
+    alpha: float,
+    truth: np.ndarray | None = None,
+    tint_background: bool = False,
+) -> Image.Image:
+    """Input, optional ground truth, and the prediction, over a legend strip."""
     height, width = rgb.shape[:2]
-    canvas = Image.new("RGB", (width * 2 + PANEL_GAP, height + HUD_HEIGHT), (18, 18, 18))
-    canvas.paste(Image.fromarray(rgb.astype(np.uint8)), (0, 0))
-    canvas.paste(Image.fromarray(blended), (width + PANEL_GAP, 0))
+    panels = [(rgb.astype(np.uint8), "input")]
+    if truth is not None:
+        panels.append((colourise(rgb, truth, alpha, tint_background), "ground truth"))
+    panels.append((colourise(rgb, mask, alpha, tint_background), "prediction"))
 
+    total_width = width * len(panels) + PANEL_GAP * (len(panels) - 1)
+    canvas = Image.new("RGB", (total_width, height + HUD_HEIGHT + LEGEND_HEIGHT), (18, 18, 18))
     draw = ImageDraw.Draw(canvas)
-    draw.text((6, height + 8), hud, fill=(235, 235, 235))
+
+    for position, (image, title) in enumerate(panels):
+        offset = position * (width + PANEL_GAP)
+        canvas.paste(Image.fromarray(image), (offset, 0))
+        draw.text((offset + 6, 6), title, fill=(245, 245, 245))
+
+    draw.text((6, height + 7), hud, fill=(235, 235, 235))
+    _draw_legend(draw, mask, height + HUD_HEIGHT - 2, total_width)
     return canvas
 
 
@@ -143,6 +202,8 @@ def run(
     device: str,
     alpha: float,
     label: str,
+    truths: list[np.ndarray] | None = None,
+    tint_background: bool = False,
 ) -> tuple[list[Image.Image], dict]:
     panels: list[Image.Image] = []
     previous: np.ndarray | None = None
@@ -165,7 +226,8 @@ def run(
         )
         if flickers:
             hud += f"   flicker {flickers[-1] * 100:.2f}%"
-        panels.append(compose(rgb, mask, hud, alpha))
+        truth = truths[index] if truths and index < len(truths) else None
+        panels.append(compose(rgb, mask, hud, alpha, truth, tint_background))
 
     stats = {
         "frames": len(panels),
@@ -225,6 +287,14 @@ def main() -> None:
     parser.add_argument("--device", default=DEVICE)
     parser.add_argument("--size", type=int, default=None, help="override inference resolution")
     parser.add_argument("--alpha", type=float, default=0.55)
+    parser.add_argument(
+        "--with-truth", action="store_true",
+        help="--frames: add the engine's mask as a middle panel",
+    )
+    parser.add_argument(
+        "--tint-background", action="store_true",
+        help="also tint predicted background (black in the palette, so it just darkens)",
+    )
     parser.add_argument("--label", default="SAM 2 frozen + 2.1M decoder")
 
     parser.add_argument("--gif", default=None)
@@ -248,7 +318,16 @@ def main() -> None:
         region = tuple(int(v) for v in args.region.split(","))
         source_iter = frames_from_capture(region, args.count)
 
-    panels, stats = run(source_iter, model, img_size, args.device, args.alpha, args.label)
+    truths = None
+    if args.frames and args.with_truth:
+        truths = ground_truth_masks(
+            Path(args.frames), args.track, args.start, args.count, img_size
+        )
+
+    panels, stats = run(
+        source_iter, model, img_size, args.device, args.alpha, args.label,
+        truths=truths, tint_background=args.tint_background,
+    )
     if not panels:
         raise SystemExit("no frames processed")
 
