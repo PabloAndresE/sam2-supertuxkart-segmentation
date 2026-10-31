@@ -411,9 +411,10 @@ Design notes:
 The Colab notebook clones the repo, pulls the 8 MB decoder from the release, and
 segments your own uploads on a free GPU. No local setup, no account beyond Google.
 
-A Gradio app also ships in [`app/app.py`](app/app.py) (`make app`) and a Hugging Face
-Space is scaffolded in [`spaces/`](spaces/), though HF now requires a paid plan to host
-Gradio Spaces — see [`spaces/DEPLOY.md`](spaces/DEPLOY.md).
+A Gradio app also ships in [`app/app.py`](app/app.py) (`make app`). To host it with a
+permanent URL, [`deploy/`](deploy/README.md) has a Cloud Run image and script —
+CPU inference peaks at **1.03 GB RSS**, which rules out the 256-512 MB free tiers of
+Render, Fly and Koyeb, and Hugging Face now charges for Gradio Spaces.
 
 ## Running it over video
 
