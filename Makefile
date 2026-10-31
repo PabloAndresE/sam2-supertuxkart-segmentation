@@ -1,4 +1,4 @@
-.PHONY: install dev test lint train eval eval-test ablations seeds bench app docker-app clean
+.PHONY: install dev test lint train eval eval-test ablations seeds bench demo app docker-app clean
 
 install:
 	pip install -e .
@@ -30,6 +30,11 @@ seeds:
 
 bench:
 	python scripts/benchmark.py --out docs/assets/benchmark.json
+
+demo:
+	python -m stkseg.live --frames seg_dataset --track abyss --start 100 --count 60 \
+	  --size 384 --scale 0.7 --gif docs/assets/demo/abyss_live.gif \
+	  --mp4 docs/assets/demo/abyss_live.mp4
 
 app:
 	python app/app.py

@@ -5,9 +5,12 @@ encoder and training only a 2.1M-parameter multi-scale decoder on top of it —
 **7% of the network is trainable**, and the trained artifact is an **8 MB** decoder
 rather than a 117 MB checkpoint.
 
-![Single-frame inference: input, segmentation, overlay](docs/assets/example_prediction.png)
+![Live segmentation over consecutive frames](docs/assets/demo/abyss_live.gif)
 
-<sub>Produced by `python -m stkseg.predict docs/assets/examples/abyss_frame_0100.png`.</sub>
+<sub>60 consecutive frames of `abyss`, 384px inference on an Apple M1 Pro: 56 ms/frame
+(17.8 fps). Left: raw frame. Right: predicted overlay. Produced by
+`python -m stkseg.live --frames seg_dataset --track abyss --gif demo.gif`.</sub>
+
 
 ---
 
@@ -384,6 +387,46 @@ Design notes:
   much in a cascade. Whether this is worth it is what the FPN ablation tests.
 - Masks are always resized with `NEAREST`. Bilinear interpolation on a label map invents
   class ids that do not exist.
+
+## Running it over video
+
+`stkseg.live` segments a frame sequence and writes a GIF or MP4. Three sources:
+
+```bash
+# consecutive dataset frames - needs nothing but the repo
+python -m stkseg.live --frames seg_dataset --track abyss --start 100 --count 60 \
+  --size 384 --gif demo.gif --mp4 demo.mp4
+
+# any recording (gameplay capture, phone video), decoded via ffmpeg
+python -m stkseg.live --video gameplay.mp4 --count 200 --stride 2 --gif demo.gif
+
+# a live screen region, to segment the real game as you play (needs `pip install mss`
+# and macOS screen-recording permission)
+python -m stkseg.live --capture --region 0,0,1280,720 --count 300 --mp4 live.mp4
+```
+
+### Temporal stability, and a second hypothesis that did not survive
+
+Treating video as independent frames should make predictions flicker: the same pixel
+flipping class between two nearly identical frames. The tool measures it, and measures
+the floor it has to beat — **the engine's own masks also change between frames**, because
+the camera is moving.
+
+| Over 60 consecutive `abyss` frames | Share of pixels changing class |
+|---|---|
+| Ground-truth masks (scene motion) | 13.51% |
+| Model predictions | 12.03% |
+| **Excess attributable to the model** | **−1.48%** |
+
+The model is marginally *more* temporally stable than the ground truth, not less. The
+expectation that per-frame inference would visibly flicker is **not supported** — it
+over-smooths slightly instead. Two caveats keep this from being conclusive: these frames
+were almost certainly in the legacy checkpoint's training set (it was trained on a
+`random` split, so 80% of all frames were seen), and it is one track. Measuring it on a
+held-out checkpoint is the honest version and has not been run.
+
+That weakens, but does not kill, the case for using SAM 2's memory attention: the
+argument has to rest on accuracy gains, not on removing flicker that is not there.
 
 ## Quickstart
 
