@@ -1,0 +1,28 @@
+{
+  "iou_per_class": {
+    "Background": 0.9449503964184488,
+    "Track": 0.9316500495670031,
+    "Kart": 0.9252028130949224,
+    "Pickup": 0.8466350367169321,
+    "Nitro": 0.7853893038029015,
+    "Bomb": 0.7572240828724979,
+    "Projectile": 0.009367042560931248
+  },
+  "mIoU": 0.7429169607190911,
+  "mIoU_shared6": 0.8651752804121178,
+  "boundary_iou_per_class": {
+    "Background": 0.20906890629048783,
+    "Track": 0.2539098601774389,
+    "Kart": 0.42447470898045814,
+    "Pickup": 0.3675127065060517,
+    "Nitro": 0.29887438046066483,
+    "Bomb": 0.3456261303445534,
+    "Projectile": 0.0
+  },
+  "boundary_mIoU": 0.27135238467995065,
+  "split": "val",
+  "strategy": "temporal_block",
+  "seed": 42,
+  "checkpoint": "runs/decisive/backbone_convnext_frozen//decoder_best.pt",
+  "timestamp": "2026-10-31T05:47:24"
+}

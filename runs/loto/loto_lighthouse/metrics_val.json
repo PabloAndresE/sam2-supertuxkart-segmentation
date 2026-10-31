@@ -1,0 +1,35 @@
+{
+  "iou_per_class": {
+    "Background": 0.9049315385256173,
+    "Track": 0.9079754195103784,
+    "Kart": 0.8649923181313739,
+    "Pickup": 0.8843265611900897,
+    "Nitro": 0.7522755666607175,
+    "Bomb": 0.548676844211615
+  },
+  "mIoU": 0.8105297080382986,
+  "mIoU_shared6": 0.8105297080382986,
+  "boundary_iou_per_class": {
+    "Background": 0.05600992123129988,
+    "Track": 0.11706915682044629,
+    "Kart": 0.3986363700897952,
+    "Pickup": 0.4994489399826476,
+    "Nitro": 0.24578947225550432,
+    "Bomb": 0.11348662470926936
+  },
+  "boundary_mIoU": 0.23840674751482713,
+  "split": "val",
+  "strategy": "track_holdout",
+  "seed": 42,
+  "checkpoint": "runs/loto/loto_lighthouse/decoder_best.pt",
+  "timestamp": "2026-10-31T05:58:02",
+  "classes_scored": [
+    "Background",
+    "Track",
+    "Kart",
+    "Pickup",
+    "Nitro",
+    "Bomb"
+  ],
+  "hallucinated_classes": []
+}

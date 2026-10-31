@@ -1,0 +1,37 @@
+{
+  "iou_per_class": {
+    "Background": 0.6918291295375176,
+    "Track": 0.613231465041563,
+    "Kart": 0.7240026078472858,
+    "Pickup": 0.8111622697859632,
+    "Nitro": 0.15064935064935064,
+    "Bomb": 0.4426797778642425,
+    "Projectile": 0.0
+  },
+  "mIoU": 0.49050780010370326,
+  "mIoU_shared6": 0.5722591001209871,
+  "boundary_iou_per_class": {
+    "Background": 0.03366481190469927,
+    "Track": 0.08934699590784623,
+    "Kart": 0.3910580000952617,
+    "Bomb": 0.1505397248044441,
+    "Pickup": 0.33262460831681195,
+    "Nitro": 0.03208361984855769,
+    "Projectile": 0.0
+  },
+  "boundary_mIoU": 0.14704539441108871,
+  "split": "val",
+  "strategy": "track_holdout",
+  "seed": 42,
+  "checkpoint": "runs/loto/loto_volcano/decoder_best.pt",
+  "timestamp": "2026-10-31T05:58:04",
+  "classes_scored": [
+    "Background",
+    "Track",
+    "Kart",
+    "Pickup",
+    "Nitro",
+    "Bomb"
+  ],
+  "hallucinated_classes": []
+}

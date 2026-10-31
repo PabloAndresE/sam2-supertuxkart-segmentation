@@ -20,7 +20,15 @@ from matplotlib import pyplot as plt
 from stkseg.config import Config
 from stkseg.constants import CLASS_NAMES, DEVICE
 from stkseg.data import build_dataloaders
-from stkseg.metrics import boundary_iou, confusion_matrix, iou_per_class
+from stkseg.metrics import (
+    SHARED_CLASSES,
+    boundary_iou,
+    classes_in_ground_truth,
+    confusion_matrix,
+    hallucinated_classes,
+    iou_per_class,
+    mean_iou_over,
+)
 from stkseg.registry import build_model
 from stkseg.viz import add_class_legend, denormalize, mask_to_color, overlay
 
@@ -47,6 +55,13 @@ def score(preds: torch.Tensor, targets: torch.Tensor) -> dict:
     return {
         "iou_per_class": per_class,
         "mIoU": float(np.mean(list(per_class.values()))),
+        # Comparable across splits; the plain mIoU above is not, because the
+        # class set present in a split varies.
+        "mIoU_shared6": mean_iou_over(preds, targets, SHARED_CLASSES),
+        # Which classes the denominator actually covers, and which the model
+        # invented. A single-track validation split may not contain all six.
+        "classes_scored": classes_in_ground_truth(targets, SHARED_CLASSES),
+        "hallucinated_classes": hallucinated_classes(preds, targets, SHARED_CLASSES),
         "boundary_iou_per_class": {k: float(np.mean(v)) for k, v in boundary.items()},
         "boundary_mIoU": float(np.mean([np.mean(v) for v in boundary.values()])),
     }
@@ -134,6 +149,7 @@ def main() -> None:
         fractions=tuple(cfg.data.fractions),
         seed=cfg.data.seed,
         block_size=cfg.data.block_size,
+        holdout_tracks=cfg.data.holdout_tracks,
     )
 
     model = build_model(cfg.model).to(args.device)
@@ -164,6 +180,15 @@ def main() -> None:
         boundary = results["boundary_iou_per_class"].get(name, float("nan"))
         print(f"  {name:12s} IoU {value:.4f}   boundary {boundary:.4f}")
     print(f"  {'mIoU':12s} {results['mIoU']:.4f}   boundary {results['boundary_mIoU']:.4f}")
+    shared = results.get("mIoU_shared6")
+    scored = results.get("classes_scored", [])
+    print(
+        f"  {'mIoU (gt)':12s} "
+        + (f"{shared:.4f}" if shared is not None else "n/a")
+        + f"   over {len(scored)} ground-truth classes"
+    )
+    if results.get("hallucinated_classes"):
+        print(f"  hallucinated (absent from truth): {results['hallucinated_classes']}")
 
     plot_confusion(preds, targets, out_dir / f"confusion_{args.split}.png")
     qualitative_grid(

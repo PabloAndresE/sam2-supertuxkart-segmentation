@@ -1,0 +1,15 @@
+# Initialisation noise on a FIXED split.
+#
+# The earlier seed sweep moved `data.seed`, which draws the split as well as the
+# initialisation, so it measured both at once. Holding `seed` at 42 and varying
+# `init_seed` isolates the part that is just weight initialisation and GPU
+# nondeterminism.
+#
+#   sbatch --export=ALL,SUITE=configs/init_seeds.yaml --array=0-2 scripts/slurm/suite.sbatch
+
+- name: init_1
+  data: {seed: 42, init_seed: 1}
+- name: init_2
+  data: {seed: 42, init_seed: 2}
+- name: init_3
+  data: {seed: 42, init_seed: 3}

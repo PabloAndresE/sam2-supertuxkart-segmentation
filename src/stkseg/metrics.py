@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -39,6 +41,54 @@ def mean_iou(pred, target, num_classes: int = NUM_CLASSES) -> float:
     """
     values = list(iou_per_class(pred, target, num_classes).values())
     return float(np.mean(values)) if values else 0.0
+
+
+def classes_in_ground_truth(target, classes: Sequence[str], num_classes: int = NUM_CLASSES):
+    """Which of ``classes`` actually occur in the ground truth."""
+    present = set(torch.unique(target.reshape(-1)).tolist())
+    return [name for name in classes if CLASS_NAMES.index(name) in present]
+
+
+def hallucinated_classes(pred, target, classes: Sequence[str], num_classes: int = NUM_CLASSES):
+    """Classes the model predicted that do not occur in the ground truth at all."""
+    predicted = set(torch.unique(pred.reshape(-1)).tolist())
+    truth = set(torch.unique(target.reshape(-1)).tolist())
+    return [
+        name
+        for name in classes
+        if CLASS_NAMES.index(name) in predicted - truth
+    ]
+
+
+def mean_iou_over(
+    pred, target, classes: Sequence[str], num_classes: int = NUM_CLASSES
+) -> float | None:
+    """Mean IoU over the requested classes **that occur in the ground truth**.
+
+    Two failure modes this avoids:
+
+    - :func:`iou_per_class` keys on a non-empty union, so a class the model
+      invents in a split where it does not exist enters the mean at 0.0. That is
+      a false positive being scored as a missed class; it belongs in
+      :func:`hallucinated_classes`, not in the average.
+    - Splits containing different class sets otherwise average over different
+      denominators and are not comparable.
+
+    Returns ``None`` when none of the requested classes occur, rather than
+    inventing a number. Scoring only ground-truth classes means the denominator
+    is a property of the data, not of the model's mistakes.
+    """
+    scoreable = classes_in_ground_truth(target, classes, num_classes)
+    if not scoreable:
+        return None
+    scores = iou_per_class(pred, target, num_classes)
+    return float(np.mean([scores.get(name, 0.0) for name in scoreable]))
+
+
+#: The six classes present in every split of this dataset. Projectile occurs in
+#: 2 of 1500 frames, so whether it lands in a given validation set is luck, and
+#: its 0.0000 shifts a 7-class mean by ~0.13.
+SHARED_CLASSES = ("Background", "Track", "Kart", "Pickup", "Nitro", "Bomb")
 
 
 def confusion_matrix(

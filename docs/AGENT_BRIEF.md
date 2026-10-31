@@ -199,3 +199,77 @@ State plainly:
    to mean anything given you likely have a single seed.
 5. Any `#SBATCH` changes you had to make, so the scripts can be fixed in the repo.
 6. Wall-clock cost per run.
+
+
+---
+
+# Round 2: what the first suite changed
+
+The first suite ran 29 jobs and settled some questions while exposing two defects in
+this repository's own protocol. Both are now fixed in code; the brief below supersedes
+the "Optional" section above.
+
+## What the first suite found
+
+- **Neighbour leakage did not measurably inflate the score.** On the six classes every
+  split shares, `temporal_block` (0.8897) scored *higher* than `random` (0.8630). The
+  0.10 gap in the seven-class column was entirely the `Projectile` term. The original
+  hypothesis — that 691 adjacent frame pairs crossing split boundaries inflated the
+  0.8534 — is not supported. Say so plainly; do not quietly drop it.
+- **Unseen scenery is the real gap.** `track_holdout` scored 0.6910, about 0.20 below
+  `temporal_block` on the same classes.
+- **The selection score lied by 0.117.** Same split, same seed, same six classes:
+  validation 0.8897, test 0.7731.
+- **SAM 2 over frozen ConvNeXt: +0.0193 ± 0.0129** paired across four splits, 95% CI
+  [-0.001, +0.040]. Consistent in direction, not yet significant.
+
+## Two defects that are now fixed
+
+1. **`data.seed` drove both the split and the weight initialisation**, so the first seed
+   sweep varied both at once and could not separate them. `data.init_seed` now exists and
+   defaults to `data.seed` for backward compatibility.
+2. **`mIoU` averages over whichever classes are present**, so splits with different class
+   sets are not comparable, and a hallucinated class enters at 0.0. `evaluate` now also
+   reports **`mIoU_shared6`** over the six classes every split contains. The old `mIoU`
+   is unchanged, so previously published numbers still mean what they said.
+
+Also new: `make_splits(..., holdout_tracks=("val_track", "test_track"))` pins which
+tracks are held out instead of drawing them from the seed.
+
+## Run these, in this order
+
+### 1. Leave-one-track-out (6 runs) — highest value
+
+The headline "unseen scenery costs 0.20" rests on **one** held-out track. Six runs make
+every track the unseen one exactly once, turning a single draw into a mean with a spread.
+
+```bash
+sbatch --export=ALL,SUITE=configs/loto.yaml --array=0-5 scripts/slurm/suite.sbatch
+```
+
+Report mean ± sd of `mIoU_shared6` across the six, and the per-track spread. If the cost
+varies a lot by track, that is itself the finding.
+
+### 2. Initialisation noise on a fixed split (3 runs)
+
+```bash
+sbatch --export=ALL,SUITE=configs/init_seeds.yaml --array=0-2 scripts/slurm/suite.sbatch
+```
+
+The previous ±0.0022 rerun estimate came from accidental duplicates inside the ablation
+suite. This measures it deliberately: `seed` pinned at 42, `init_seed` varying.
+
+### 3. More paired backbone splits (optional, 12 runs)
+
+Only if 1 and 2 are done and GPU time is free. Extends the paired comparison toward
+significance. Note the effect size is ~0.02; decide whether that is worth the hours
+before spending them.
+
+## Rules still in force
+
+Everything under "Hard rules" above still applies — especially: the test split is read
+once, the protocol stays fixed within a suite, failure classes stay in the mean, and no
+number is reported that was not measured.
+
+Use `mIoU_shared6` for every cross-split comparison. Keep the plain `mIoU` column beside
+it so the two are never confused.
